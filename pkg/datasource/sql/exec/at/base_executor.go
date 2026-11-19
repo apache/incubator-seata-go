@@ -66,9 +66,9 @@ func (b *baseExecutor) afterHooks(ctx context.Context, execCtx *types.ExecContex
 	return nil
 }
 
-// GetScanSlice get the column type for scan
+// getScanSlice gets the column type for scan
 // todo to use ColumnInfo get slice
-func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMeta) []interface{} {
+func getScanSlice(columnNames []string, tableMeta *types.TableMeta) []interface{} {
 	scanSlice := make([]interface{}, 0, len(columnNames))
 	for _, columnName := range columnNames {
 		var (
@@ -196,19 +196,20 @@ func qualifiedTableName(key *types.TableMetaKey, fallback string, dbType types.D
 	if key == nil {
 		return fallback
 	}
-	qualifier := key.DBName
-	quote := "`"
 	if effectiveDBType(dbType) == types.DBTypePostgreSQL {
-		qualifier = key.Schema
-		quote = `"`
+		return quoteQualifiedTable(key.Schema, key.TableName, fallback, `"`)
 	}
-	if qualifier == "" || key.TableName == "" {
+	return (mysqlAdapter{}).qualifiedTableName(key, fallback)
+}
+
+func quoteQualifiedTable(qualifier, table, fallback, quote string) string {
+	if qualifier == "" || table == "" {
 		return fallback
 	}
 	escape := func(name string) string {
 		return quote + strings.ReplaceAll(name, quote, quote+quote) + quote
 	}
-	return escape(qualifier) + "." + escape(key.TableName)
+	return escape(qualifier) + "." + escape(table)
 }
 
 func jdbcTypeForDatabaseType(dbType types.DBType, databaseType string) types.JDBCType {
@@ -263,21 +264,18 @@ func (b *baseExecutor) normalizeGeneratedSQL(query string, dbType types.DBType) 
 // restoreImageSelectSQL preserves the identifiers and literals prepared by
 // ParsePostgreSQLForImage when building PostgreSQL auxiliary queries.
 func (b *baseExecutor) restoreImageSelectSQL(stmt *ast.SelectStmt, dbType types.DBType) (string, error) {
-	var sql strings.Builder
-	flags := format.RestoreKeyWordUppercase
-	if dbType == types.DBTypePostgreSQL {
-		flags |= format.RestoreNameDoubleQuotes | format.RestoreStringSingleQuotes
+	if dbType != types.DBTypePostgreSQL {
+		return (mysqlAdapter{}).restoreImageSelectSQL(stmt)
 	}
+	var sql strings.Builder
+	flags := format.RestoreKeyWordUppercase | format.RestoreNameDoubleQuotes | format.RestoreStringSingleQuotes
 	if err := stmt.Restore(format.NewRestoreCtx(flags, &sql)); err != nil {
 		return "", err
 	}
-	if dbType == types.DBTypePostgreSQL {
-		// Literals are already PostgreSQL SQL. MySQL charset rewriting would
-		// also change matching text inside dollar strings.
-		query := strings.Replace(sql.String(), "SELECT SQL_NO_CACHE ", "SELECT ", 1)
-		return util.RewritePlaceholders(query, dbType), nil
-	}
-	return b.normalizeGeneratedSQL(sql.String(), dbType), nil
+	// Literals are already PostgreSQL SQL. MySQL charset rewriting would
+	// also change matching text inside dollar strings.
+	query := strings.Replace(sql.String(), "SELECT SQL_NO_CACHE ", "SELECT ", 1)
+	return util.RewritePlaceholders(query, dbType), nil
 }
 
 func (b *baseExecutor) buildSelectArgs(stmt *ast.SelectStmt, args []driver.NamedValue) []driver.NamedValue {
@@ -412,7 +410,7 @@ func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types
 	sqlRows := util.NewScanRows(rowsi)
 
 	for sqlRows.Next() {
-		ss := b.GetScanSlice(columnNames, tableMetaData)
+		ss := getScanSlice(columnNames, tableMetaData)
 
 		err := sqlRows.Scan(ss...)
 		if err != nil {
@@ -650,7 +648,7 @@ func (b *baseExecutor) buildWhereConditionByPKs(pkNameList []string, rowSize int
 				whereStr.WriteString(",")
 			}
 			if effectiveDBType(dbType) == types.DBTypeMySQL {
-				whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))
+				whereStr.WriteString((mysqlAdapter{}).quoteImagePK(pkNameList[i]))
 				continue
 			}
 			whereStr.WriteString(util.AddEscape(pkNameList[i], dbType))
@@ -710,11 +708,6 @@ func (b *baseExecutor) buildPKParams(rows []types.RowImage, pkNameList []string,
 	return params
 }
 
-// the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
-func (b *baseExecutor) buildLockKey(records *types.RecordImage, meta types.TableMeta) string {
-	return util.BuildLockKey(records, meta)
-}
-
 func rowsByPrimaryKey(image *types.RecordImage, dbType types.DBType) (map[string]types.RowImage, error) {
 	rows := make(map[string]types.RowImage, len(image.Rows))
 	for _, row := range image.Rows {
@@ -762,7 +755,40 @@ func rowsEqualByPrimaryKey(beforeImage, afterImage *types.RecordImage, dbType ty
 	return true, nil
 }
 
-func (b *baseExecutor) prepareUndoPair(execCtx *types.ExecContext, beforeImage, afterImage *types.RecordImage) error {
+// execWithImages is the single-table UPDATE and DELETE workflow. The
+// callers own their statement-specific hooks and table validation.
+func (b *baseExecutor) execWithImages(
+	ctx context.Context,
+	execCtx *types.ExecContext,
+	run exec.CallbackWithNamedValue,
+	before func(context.Context) (*types.RecordImage, error),
+	after func(context.Context, types.RecordImage) (*types.RecordImage, error),
+) (types.ExecResult, error) {
+	beforeImage, err := before(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := run(ctx, execCtx.Query, execCtx.NamedValues)
+	if err != nil {
+		return nil, err
+	}
+
+	afterImage, err := after(ctx, *beforeImage)
+	if err != nil {
+		return nil, err
+	}
+	encodeLockKey := util.BuildLockKey
+	if effectiveDBType(execCtx.DBType) == types.DBTypeMySQL {
+		encodeLockKey = (mysqlAdapter{}).buildDMLLockKey
+	}
+	if err := b.prepareUndoPair(execCtx, beforeImage, afterImage, encodeLockKey); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (b *baseExecutor) prepareUndoPair(execCtx *types.ExecContext, beforeImage, afterImage *types.RecordImage, encodeLockKey func(*types.RecordImage, types.TableMeta) string) error {
 	if execCtx == nil || execCtx.TxCtx == nil {
 		return fmt.Errorf("transaction context is nil")
 	}
@@ -804,7 +830,7 @@ func (b *baseExecutor) prepareUndoPair(execCtx *types.ExecContext, beforeImage, 
 		}
 	}
 
-	lockKey := b.buildLockKey(lockImage, *lockImage.TableMeta)
+	lockKey := encodeLockKey(lockImage, *lockImage.TableMeta)
 	if lockKey == "" {
 		return fmt.Errorf("lock key is empty")
 	}

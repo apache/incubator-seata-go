@@ -25,6 +25,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
@@ -187,19 +188,21 @@ func TestUpdateExecutorAccumulatesOnlyEffectiveBatchItems(t *testing.T) {
 		{args: []driver.Value{int64(120), int64(1)}, rowsAffected: 1},
 		{args: []driver.Value{int64(999), int64(2)}},
 	} {
-		parserCtx, err := parser.DoParser(query)
-		assert.NoError(t, err)
 		namedValues := util.ValueToNamedValue(item.args)
-		executor := NewUpdateExecutor(parserCtx, &types.ExecContext{TableMetaReader: reader,
-			Query: query, NamedValues: namedValues, Conn: conn, TxCtx: txCtx, DBType: types.DBTypeMySQL, DBName: "app",
-		}, nil)
-		_, err = executor.ExecContext(context.Background(), func(_ context.Context, businessQuery string, businessArgs []driver.NamedValue) (types.ExecResult, error) {
+		execCtx := &types.ExecContext{TableMetaReader: reader,
+			Query: query, NamedValues: namedValues, Conn: conn, TxCtx: txCtx, DBName: "app",
+		}
+		businessResult := types.NewResult(types.WithResult(driver.RowsAffected(item.rowsAffected)))
+		result, err := exec.ExecuteATWithBuilder(context.Background(), types.DBTypeMySQL, execCtx, func() exec.SQLExecutor {
+			return &ATExecutor{}
+		}, func(_ context.Context, businessQuery string, businessArgs []driver.NamedValue) (types.ExecResult, error) {
 			callbacks++
 			assert.Equal(t, query, businessQuery)
 			assert.Equal(t, namedValues, businessArgs)
-			return types.NewResult(types.WithResult(driver.RowsAffected(item.rowsAffected))), nil
+			return businessResult, nil
 		})
 		assert.NoError(t, err)
+		assert.Same(t, businessResult, result)
 	}
 
 	beforeImages := txCtx.RoundImages.BeofreImages()
@@ -212,6 +215,43 @@ func TestUpdateExecutorAccumulatesOnlyEffectiveBatchItems(t *testing.T) {
 	assert.EqualValues(t, 120, afterImages[1].Rows[0].GetColumnMap()["balance"].Value)
 	assert.Equal(t, 4, callbacks)
 	assert.Equal(t, map[string]struct{}{"ACCOUNT:1": {}}, txCtx.LockKeys)
+}
+
+func TestUpdateExecutorRejectsIncompleteAfterImageWithDefaultSQLType(t *testing.T) {
+	const query = "UPDATE app.account SET balance = 100 WHERE id IN (1, 2)"
+	parsed, err := parser.DoParser(query)
+	require.NoError(t, err)
+	parseCtx := &types.ParseContext{DBType: types.DBTypeMySQL, UpdateStmt: parsed.UpdateStmt}
+
+	id := types.ColumnMeta{ColumnName: "id", DatabaseTypeString: "BIGINT"}
+	balance := types.ColumnMeta{ColumnName: "balance", DatabaseTypeString: "BIGINT"}
+	meta := &types.TableMeta{
+		TableName: "account", ColumnNames: []string{"id", "balance"},
+		Columns: map[string]types.ColumnMeta{"id": id, "balance": balance},
+		Indexs:  map[string]types.IndexMeta{"PRIMARY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{id}}},
+	}
+	conn := mock.NewMockTestDriverConn(gomock.NewController(t))
+	gomock.InOrder(
+		conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(newDeleteRows(meta.ColumnNames,
+			[]driver.Value{int64(1), int64(10)}, []driver.Value{int64(2), int64(20)}), nil),
+		conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(newDeleteRows(meta.ColumnNames,
+			[]driver.Value{int64(1), int64(100)}), nil),
+	)
+
+	txCtx := types.NewTxCtx()
+	txCtx.TransactionMode = types.ATMode
+	execCtx := &types.ExecContext{Query: query, DBName: "app", DBType: types.DBTypeMySQL, Conn: conn,
+		TxCtx: txCtx, TableMetaReader: &stubTableMetaCache{meta: meta}}
+	executor := NewUpdateExecutor(parseCtx, execCtx, nil)
+	result, err := executor.ExecContext(context.Background(), func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
+		return types.NewResult(types.WithResult(driver.RowsAffected(2))), nil
+	})
+
+	require.ErrorContains(t, err, "Before image size is not equaled to after image size")
+	require.Nil(t, result)
+	require.Empty(t, txCtx.RoundImages.BeofreImages())
+	require.Empty(t, txCtx.RoundImages.AfterImages())
+	require.Empty(t, txCtx.LockKeys)
 }
 
 func TestUpdateExecutorDoesNotAppendArtifactsOnFailure(t *testing.T) {

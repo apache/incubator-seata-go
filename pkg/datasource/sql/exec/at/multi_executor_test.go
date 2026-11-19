@@ -22,8 +22,10 @@ import (
 	"database/sql/driver"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
@@ -82,6 +84,43 @@ func TestMultiExecutorFallsBackToSequentialWhenStatementSpecificHookExists(t *te
 	assert.Len(t, factoryRecorder.calls, 2)
 	assert.Equal(t, 2, updateHook.beforeCount)
 	assert.Equal(t, 2, updateHook.afterCount)
+}
+
+func TestMySQLAdapterPreservesAggregateDelete(t *testing.T) {
+	const query = "DELETE FROM orders WHERE id=1; DELETE FROM orders WHERE id=2"
+	id := types.ColumnMeta{ColumnName: "id", DatabaseTypeString: "BIGINT"}
+	meta := &types.TableMeta{
+		TableName: "orders", ColumnNames: []string{"id"},
+		Columns: map[string]types.ColumnMeta{"id": id},
+		Indexs:  map[string]types.IndexMeta{"PRIMARY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{id}}},
+	}
+	reader := &tableMetaReaderForTest{key: types.TableMetaKey{DBName: "app", TableName: meta.TableName}, meta: meta}
+	conn := mock.NewMockTestDriverConn(gomock.NewController(t))
+	conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Len(0)).
+		Return(newDeleteRows(meta.ColumnNames, []driver.Value{int64(1)}, []driver.Value{int64(2)}), nil)
+	txCtx := types.NewTxCtx()
+	txCtx.TransactionMode = types.ATMode
+	execCtx := &types.ExecContext{Query: query, DBName: "app", Conn: conn, TxCtx: txCtx, TableMetaReader: reader}
+	hook := &mockSQLHook{sqlType: types.SQLTypeMulti}
+	root := &ATExecutor{hooks: []exec.SQLHook{hook}}
+
+	businessResult := types.NewResult(types.WithResult(driver.RowsAffected(1)))
+	callbacks := 0
+	result, err := root.ExecWithNamedValue(context.Background(), execCtx, func(_ context.Context, sql string, args []driver.NamedValue) (types.ExecResult, error) {
+		callbacks++
+		assert.Equal(t, query, sql)
+		assert.Empty(t, args)
+		return businessResult, nil
+	})
+
+	assert.NoError(t, err)
+	assert.Same(t, businessResult, result)
+	assert.Equal(t, 1, callbacks)
+	assert.Equal(t, 1, hook.beforeCallCount)
+	assert.Equal(t, 1, hook.afterCallCount)
+	assert.Len(t, txCtx.RoundImages.BeofreImages(), 1)
+	assert.Len(t, txCtx.RoundImages.AfterImages(), 1)
+	assert.Equal(t, map[string]struct{}{"ORDERS:1,2": {}}, txCtx.LockKeys)
 }
 
 func TestMultiExecutorWriteDatabaseBoundary(t *testing.T) {

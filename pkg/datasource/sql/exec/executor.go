@@ -77,9 +77,31 @@ func BuildExecutor(dbType types.DBType, transactionMode types.TransactionMode, q
 
 // BuildExecutorWithATBuilder builds an executor using the supplied builder when an AT root is needed.
 func BuildExecutorWithATBuilder(dbType types.DBType, transactionMode types.TransactionMode, query string, builder ATExecutorBuilder) (SQLExecutor, error) {
-	// Hook selection only needs the statement type. Table identities are bound
-	// by the AT execution path before it reads metadata or builds images.
-	parseContext, err := parser.ParseSQLForDB(query, dbType)
+	parsed, err := parser.ParseSQLForDB(query, dbType)
+	return buildExecutorWithParsedSQL(dbType, transactionMode, builder, parsed, err)
+}
+
+// ExecuteATWithBuilder builds a per-execution root from a resource's bound
+// builder. MySQL AT can reuse the AST used for hook selection in this call.
+func ExecuteATWithBuilder(ctx context.Context, dbType types.DBType, execCtx *types.ExecContext, builder ATExecutorBuilder, run CallbackWithNamedValue) (types.ExecResult, error) {
+	query := execCtx.Query
+	mode := execCtx.TxCtx.TransactionMode
+	parsed, parseErr := parser.ParseSQLForDB(query, dbType)
+	root, err := buildExecutorWithParsedSQL(dbType, mode, builder, parsed, parseErr)
+	if err != nil {
+		return nil, err
+	}
+	if dbType == types.DBTypeMySQL && parsed != nil && mode != types.XAMode &&
+		(mode == types.ATMode || execCtx.IsRequireGlobalLock) {
+		restoreParse := execCtx.BindATParse(query, parsed)
+		defer restoreParse()
+	}
+	return root.ExecWithNamedValue(ctx, execCtx, run)
+}
+
+// Hook selection only needs the statement type. The root binds table
+// identities when it needs metadata or images.
+func buildExecutorWithParsedSQL(dbType types.DBType, transactionMode types.TransactionMode, builder ATExecutorBuilder, parseContext *types.ParseContext, err error) (SQLExecutor, error) {
 	if err != nil {
 		// XA mode uses a pass-through executor and never needs the parsed statement:
 		// two-phase commit is managed by the TC and no undo log is generated, so SQL

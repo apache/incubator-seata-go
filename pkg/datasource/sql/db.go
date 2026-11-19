@@ -124,11 +124,7 @@ type DBResource struct {
 }
 
 func (db *DBResource) executeAT(ctx context.Context, execCtx *types.ExecContext, run exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	executor, err := exec.BuildExecutorWithATBuilder(db.dbType, execCtx.TxCtx.TransactionMode, execCtx.Query, db.atExecutorBuilder)
-	if err != nil {
-		return nil, err
-	}
-	return executor.ExecWithNamedValue(ctx, execCtx, run)
+	return exec.ExecuteATWithBuilder(ctx, db.dbType, execCtx, db.atExecutorBuilder, run)
 }
 
 func (db *DBResource) GetResourceGroupId() string {

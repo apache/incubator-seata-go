@@ -709,6 +709,8 @@ func parseParseContext(stmtNode ast.StmtNode, dbType types.DBType) *types.ParseC
 		parserCtx.SQLType = types.SQLTypeDelete
 		parserCtx.DeleteStmt = stmt
 		parserCtx.ExecutorType = types.DeleteExecutor
+	default:
+		parserCtx.UnclassifiedStmt = stmtNode
 	}
 	return parserCtx
 }

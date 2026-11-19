@@ -18,12 +18,10 @@
 package at
 
 import (
-	"bytes"
 	"context"
 	"database/sql/driver"
 	"errors"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/arana-db/parser/ast"
@@ -191,7 +189,7 @@ func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 	if err != nil {
 		return nil, err
 	}
-	lockKey, err := s.buildLockKey(keyRows, s.metaData)
+	lockKey, err := (mysqlAdapter{}).buildSelectLockKey(keyRows, s.metaData)
 	err = errors.Join(err, keyRows.Close())
 	log.Infof("primary key query completed, lockKey: %s, err: %v", lockKey, err)
 
@@ -288,41 +286,4 @@ func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *t
 	log.Infof("build select sql by update sourceQuery, sql {}", sql)
 
 	return sql, nil
-}
-
-func (s *selectForUpdateExecutor) buildLockKey(rows driver.Rows, meta *types.TableMeta) (string, error) {
-	var lockKeys bytes.Buffer
-	columnNames := meta.GetPrimaryKeyOnlyName()
-	sqlRows := util.NewScanRows(rows)
-	for sqlRows.Next() {
-		values := s.GetScanSlice(columnNames, meta)
-		if err := sqlRows.Scan(values...); err != nil {
-			return "", err
-		}
-		if lockKeys.Len() == 0 {
-			lockKeys.WriteString(meta.TableName)
-			lockKeys.WriteByte(':')
-		} else {
-			lockKeys.WriteByte(',')
-		}
-		for i, value := range values {
-			if i > 0 {
-				lockKeys.WriteByte('_')
-			}
-			// Nullable scan destinations expose their underlying value via Value.
-			ty := reflect.TypeOf(value)
-			if method, ok := ty.MethodByName("Value"); ok {
-				result := method.Func.Call([]reflect.Value{reflect.ValueOf(value)})
-				if result[1].IsNil() {
-					lockKeys.WriteString(result[0].Elem().String())
-				}
-				continue
-			}
-			fmt.Fprint(&lockKeys, reflect.ValueOf(value).Elem())
-		}
-	}
-	if err := sqlRows.Err(); err != nil {
-		return "", err
-	}
-	return lockKeys.String(), nil
 }

@@ -52,6 +52,9 @@ type ParseContext struct {
 	DeleteStmt   *ast.DeleteStmt
 	MultiStmt    []*ParseContext
 	TableRefs    map[*ast.TableName]TableRef
+
+	// UnclassifiedStmt carries the AST for statements without a dedicated executor.
+	UnclassifiedStmt ast.StmtNode
 }
 
 // GetTableRef returns the identity of the first table in a single statement.

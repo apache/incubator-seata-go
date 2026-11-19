@@ -114,8 +114,6 @@ func TestBuildSelectPKSQL_PostgreSQL(t *testing.T) {
 }
 
 func TestBuildLockKey(t *testing.T) {
-	e := selectForUpdateExecutor{}
-
 	metaData := types.TableMeta{
 		TableName: "t_user",
 		Indexs: map[string]types.IndexMeta{
@@ -158,16 +156,16 @@ func TestBuildLockKey(t *testing.T) {
 		ColumnNames: []string{"id", "order_id", "age"},
 	}
 	rows := &mockRows{values: [][]driver.Value{{1, "oid11"}, {2, "oid22"}, {3, "oid33"}}}
-	lockKey, err := e.buildLockKey(rows, &metaData)
+	lockKey, err := (mysqlAdapter{}).buildSelectLockKey(rows, &metaData)
 	assert.NoError(t, err)
 	assert.Equal(t, "t_user:1_oid11,2_oid22,3_oid33", lockKey)
 
-	emptyKey, err := e.buildLockKey(lockKeyRows{nextErr: io.EOF}, &metaData)
+	emptyKey, err := (mysqlAdapter{}).buildSelectLockKey(lockKeyRows{nextErr: io.EOF}, &metaData)
 	assert.NoError(t, err)
 	assert.Empty(t, emptyKey)
 
 	readErr := errors.New("primary key read failed")
-	_, err = e.buildLockKey(lockKeyRows{nextErr: readErr}, &metaData)
+	_, err = (mysqlAdapter{}).buildSelectLockKey(lockKeyRows{nextErr: readErr}, &metaData)
 	assert.ErrorIs(t, err, readErr)
 }
 

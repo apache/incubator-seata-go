@@ -20,6 +20,7 @@ package at
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -60,6 +61,102 @@ func TestATExecutor_Interceptors(t *testing.T) {
 			executor := &ATExecutor{}
 			executor.Interceptors(tt.interceptors)
 			assert.Equal(t, len(tt.interceptors), len(executor.hooks), "hooks count should match")
+		})
+	}
+}
+
+type wrappedATExecutor struct {
+	*ATExecutor
+	execute func(context.Context, *types.ExecContext, exec.CallbackWithNamedValue) (types.ExecResult, error)
+}
+
+func (*wrappedATExecutor) Interceptors([]exec.SQLHook) {}
+
+func (e *wrappedATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, run exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	return e.execute(ctx, execCtx, run)
+}
+
+func TestExecuteATWithBuilderHonorsWrappedExecutor(t *testing.T) {
+	blocked := errors.New("resource executor rejected SQL")
+	execCtx := &types.ExecContext{Query: "SELECT 1", TxCtx: types.NewTxCtx()}
+	_, err := exec.ExecuteATWithBuilder(context.Background(), types.DBTypeMySQL, execCtx, func() exec.SQLExecutor {
+		return &wrappedATExecutor{
+			ATExecutor: &ATExecutor{},
+			execute: func(context.Context, *types.ExecContext, exec.CallbackWithNamedValue) (types.ExecResult, error) {
+				return nil, blocked
+			},
+		}
+	}, func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
+		t.Error("business callback ran despite the resource executor's rejection")
+		return &mockExecResult{}, nil
+	})
+	require.ErrorIs(t, err, blocked)
+}
+
+func TestExecuteATWithBuilderReusesOnlyMatchingParse(t *testing.T) {
+	originalParseSQLQuery := parseSQLQuery
+	t.Cleanup(func() { parseSQLQuery = originalParseSQLQuery })
+	var reparsed []string
+	parseSQLQuery = func(query string) (*types.ParseContext, error) {
+		reparsed = append(reparsed, query)
+		return originalParseSQLQuery(query)
+	}
+
+	txCtx := types.NewTxCtx()
+	txCtx.TransactionMode = types.ATMode
+	execCtx := &types.ExecContext{Query: "SELECT 1", TxCtx: txCtx}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	result, err := exec.ExecuteATWithBuilder(ctx, types.DBTypeMySQL, execCtx, func() exec.SQLExecutor {
+		return &ATExecutor{}
+	}, func(callbackCtx context.Context, query string, _ []driver.NamedValue) (types.ExecResult, error) {
+		require.Same(t, ctx, callbackCtx)
+		require.Equal(t, "SELECT 1", query)
+		return &mockExecResult{}, nil
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Empty(t, reparsed)
+	require.Nil(t, execCtx.ATParseContext())
+
+	const rewritten = "CREATE TABLE account (id INT)"
+	_, err = exec.ExecuteATWithBuilder(ctx, types.DBTypeMySQL, execCtx, func() exec.SQLExecutor {
+		root := &ATExecutor{}
+		return &wrappedATExecutor{
+			ATExecutor: root,
+			execute: func(ctx context.Context, execCtx *types.ExecContext, run exec.CallbackWithNamedValue) (types.ExecResult, error) {
+				execCtx.Query = rewritten
+				return root.ExecWithNamedValue(ctx, execCtx, run)
+			},
+		}
+	}, func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
+		t.Error("business callback ran after rewriting the read to DDL")
+		return &mockExecResult{}, nil
+	})
+	require.ErrorIs(t, err, errMySQLATUnsupportedStatement)
+	require.Equal(t, []string{rewritten}, reparsed)
+	require.Nil(t, execCtx.ATParseContext())
+}
+
+func TestExecuteATWithBuilderKeepsParseStateOffSharedDelegate(t *testing.T) {
+	delegate := &ATExecutor{}
+	builder := func() exec.SQLExecutor {
+		return &wrappedATExecutor{ATExecutor: delegate, execute: delegate.ExecWithNamedValue}
+	}
+	for _, query := range []string{"SELECT 1", "SELECT 2"} {
+		query := query
+		t.Run(query, func(t *testing.T) {
+			t.Parallel()
+			txCtx := types.NewTxCtx()
+			txCtx.TransactionMode = types.ATMode
+			execCtx := &types.ExecContext{Query: query, TxCtx: txCtx}
+			result, err := exec.ExecuteATWithBuilder(context.Background(), types.DBTypeMySQL, execCtx, builder,
+				func(_ context.Context, sql string, _ []driver.NamedValue) (types.ExecResult, error) {
+					require.Equal(t, query, sql)
+					return &mockExecResult{}, nil
+				})
+			require.NoError(t, err)
+			require.NotNil(t, result)
 		})
 	}
 }
@@ -226,7 +323,7 @@ func TestATExecutor_ExecWithNamedValue_GlobalTx(t *testing.T) {
 		},
 		{
 			name:    "global transaction - MULTI",
-			query:   "UPDATE users SET age = ? WHERE id IN (?, ?)",
+			query:   "UPDATE users SET age = 1 WHERE id = 2; DELETE FROM users WHERE id = 3",
 			sqlType: types.SQLTypeMulti,
 			wantErr: false,
 		},
@@ -240,15 +337,7 @@ func TestATExecutor_ExecWithNamedValue_GlobalTx(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			originalParseSQLQuery := parseSQLQuery
-			t.Cleanup(func() { parseSQLQuery = originalParseSQLQuery })
 			replaceATExecutorFactories(t, &mockExecutor{})
-
-			parseSQLQuery = func(query string) (*types.ParseContext, error) {
-				return &types.ParseContext{
-					SQLType: tt.sqlType,
-				}, nil
-			}
 
 			executor := &ATExecutor{
 				hooks: []exec.SQLHook{

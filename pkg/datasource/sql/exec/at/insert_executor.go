@@ -136,7 +136,7 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 	}
 	if noOp {
 		afterImage := types.NewEmptyRecordImage(beforeImage.TableMeta, types.SQLTypeInsert)
-		if err := i.prepareUndoPair(i.execContext, beforeImage, afterImage); err != nil {
+		if err := i.prepareUndoPair(i.execContext, beforeImage, afterImage, (mysqlAdapter{}).buildDMLLockKey); err != nil {
 			return nil, err
 		}
 		return res, nil
@@ -150,7 +150,7 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 		return nil, err
 	}
 
-	if err := i.prepareUndoPair(i.execContext, beforeImage, afterImage); err != nil {
+	if err := i.prepareUndoPair(i.execContext, beforeImage, afterImage, (mysqlAdapter{}).buildDMLLockKey); err != nil {
 		return nil, err
 	}
 	return res, nil
@@ -293,7 +293,7 @@ func (i *insertExecutor) execPostgreSQLInsert(ctx context.Context) (types.ExecRe
 		return nil, nil, err
 	}
 
-	lockKey := i.buildLockKey(afterImage, *metaData)
+	lockKey := util.BuildLockKey(afterImage, *metaData)
 	if lockKey != "" {
 		i.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
 	}
