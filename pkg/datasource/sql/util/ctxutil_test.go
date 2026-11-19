@@ -381,7 +381,7 @@ func TestCtxDriverQuery_WithCancelledContext(t *testing.T) {
 	assert.Equal(t, context.Canceled, err)
 }
 
-// Tests for ctxDriverStmtExec
+// Tests for CtxDriverStmtExec
 func TestCtxDriverStmtExec_WithContext(t *testing.T) {
 	mockResult := &mockResult{lastInsertId: 1, rowsAffected: 1}
 	mockStmt := &mockStmtExecContext{
@@ -394,7 +394,7 @@ func TestCtxDriverStmtExec_WithContext(t *testing.T) {
 	ctx := context.Background()
 	args := []driver.NamedValue{{Ordinal: 1, Value: "test"}}
 
-	result, err := ctxDriverStmtExec(ctx, mockStmt, args)
+	result, err := CtxDriverStmtExec(ctx, mockStmt, args)
 	assert.NoError(t, err)
 	assert.Equal(t, mockResult, result)
 }
@@ -411,7 +411,7 @@ func TestCtxDriverStmtExec_WithoutContext(t *testing.T) {
 	ctx := context.Background()
 	args := []driver.NamedValue{{Ordinal: 1, Value: "test"}}
 
-	result, err := ctxDriverStmtExec(ctx, mockStmt, args)
+	result, err := CtxDriverStmtExec(ctx, mockStmt, args)
 	assert.NoError(t, err)
 	assert.Equal(t, mockResult, result)
 }
@@ -422,13 +422,13 @@ func TestCtxDriverStmtExec_WithCancelledContext(t *testing.T) {
 	cancel()
 	args := []driver.NamedValue{{Ordinal: 1, Value: "test"}}
 
-	result, err := ctxDriverStmtExec(ctx, mockStmt, args)
+	result, err := CtxDriverStmtExec(ctx, mockStmt, args)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Equal(t, context.Canceled, err)
 }
 
-// Tests for ctxDriverStmtQuery
+// Tests for CtxDriverStmtQuery
 func TestCtxDriverStmtQuery_WithContext(t *testing.T) {
 	mockRows := &mockRows{columns: []string{"id", "name"}}
 	mockStmt := &mockStmtQueryContext{
@@ -441,7 +441,7 @@ func TestCtxDriverStmtQuery_WithContext(t *testing.T) {
 	ctx := context.Background()
 	args := []driver.NamedValue{{Ordinal: 1, Value: "test"}}
 
-	result, err := ctxDriverStmtQuery(ctx, mockStmt, args)
+	result, err := CtxDriverStmtQuery(ctx, mockStmt, args)
 	assert.NoError(t, err)
 	assert.Equal(t, mockRows, result)
 }
@@ -458,7 +458,7 @@ func TestCtxDriverStmtQuery_WithoutContext(t *testing.T) {
 	ctx := context.Background()
 	args := []driver.NamedValue{{Ordinal: 1, Value: "test"}}
 
-	result, err := ctxDriverStmtQuery(ctx, mockStmt, args)
+	result, err := CtxDriverStmtQuery(ctx, mockStmt, args)
 	assert.NoError(t, err)
 	assert.Equal(t, mockRows, result)
 }
@@ -469,7 +469,7 @@ func TestCtxDriverStmtQuery_WithCancelledContext(t *testing.T) {
 	cancel()
 	args := []driver.NamedValue{{Ordinal: 1, Value: "test"}}
 
-	result, err := ctxDriverStmtQuery(ctx, mockStmt, args)
+	result, err := CtxDriverStmtQuery(ctx, mockStmt, args)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Equal(t, context.Canceled, err)
