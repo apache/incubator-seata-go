@@ -118,7 +118,7 @@ func (l *LocalServiceInvoker) resolveParameters(input []any, methodType reflect.
 	params := make([]reflect.Value, argCount)
 	for i := 0; i < argCount; i++ {
 		paramType := methodType.In(i + 1)
-		if i >= len(input) {
+		if i >= len(input) || input[i] == nil {
 			params[i] = reflect.Zero(paramType)
 			continue
 		}

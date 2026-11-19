@@ -116,6 +116,14 @@ func TestLocalInvoker_InvokeSuccess(t *testing.T) {
 			expected:    5,
 		},
 		{
+			name:        "test null integer parameter",
+			service:     &MockLocalService{},
+			serviceName: "mockService",
+			methodName:  "Add",
+			input:       []any{nil, 3},
+			expected:    3,
+		},
+		{
 			name:        "test parameter type conversion",
 			service:     &MockLocalService{},
 			serviceName: "mockService",
