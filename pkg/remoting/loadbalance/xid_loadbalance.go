@@ -19,6 +19,7 @@ package loadbalance
 
 import (
 	"fmt"
+	"net/netip"
 	"strings"
 	"sync"
 
@@ -42,15 +43,17 @@ func XidLoadBalance(sessions *sync.Map, xid string) connection.Connection {
 		if err != nil {
 			log.Errorf("xid load balance err, xid:%s, %v , change use random load balance", xid, err)
 		} else {
+			ipPort := fmt.Sprintf("%s:%d", ip, port)
+			targetIP, _ := netip.ParseAddr(ip)
 			sessions.Range(func(key, value interface{}) bool {
 				tmpSession := key.(connection.Connection)
 				if tmpSession.IsClosed() {
 					sessions.Delete(tmpSession)
 					return true
 				}
-				ipPort := fmt.Sprintf("%s:%d", ip, port)
 				connectedIpPort := tmpSession.RemoteAddr()
-				if ipPort == connectedIpPort {
+				peer, _ := netip.ParseAddrPort(connectedIpPort)
+				if ipPort == connectedIpPort || (targetIP.IsValid() && targetIP == peer.Addr() && port == int(peer.Port())) {
 					session = tmpSession
 					return false
 				}
