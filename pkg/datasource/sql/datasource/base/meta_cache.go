@@ -52,6 +52,9 @@ type BaseTableMetaCache struct {
 	trigger         trigger
 	db              *sql.DB
 	dbName          string
+	workerMu        sync.Mutex
+	stopWorkers     context.CancelFunc
+	workers         sync.WaitGroup
 }
 
 // NewBaseCache
@@ -75,12 +78,22 @@ func NewBaseCache(ctx context.Context, capity int32, expireDuration time.Duratio
 
 // Init
 func (c *BaseTableMetaCache) Init(ctx context.Context) error {
-	if c.db == nil {
+	c.workerMu.Lock()
+	defer c.workerMu.Unlock()
+	if c.db == nil || c.stopWorkers != nil {
 		return nil
 	}
 
-	go c.refresh(ctx)
-	go c.scanExpire(ctx)
+	ctx, c.stopWorkers = context.WithCancel(ctx)
+	c.workers.Add(2)
+	go func() {
+		defer c.workers.Done()
+		c.refresh(ctx)
+	}()
+	go func() {
+		defer c.workers.Done()
+		c.scanExpire(ctx)
+	}()
 	return nil
 }
 
@@ -195,6 +208,14 @@ func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, key types.TableMe
 	return v.value, nil
 }
 
+// Destroy stops the cache workers and waits for them to release their connections.
 func (c *BaseTableMetaCache) Destroy() error {
+	c.workerMu.Lock()
+	defer c.workerMu.Unlock()
+	if c.stopWorkers != nil {
+		c.stopWorkers()
+		c.workers.Wait()
+		c.stopWorkers = nil
+	}
 	return nil
 }

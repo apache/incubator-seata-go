@@ -111,7 +111,7 @@ func (p *postgresTrigger) getColumnMetas(ctx context.Context, key types.TableMet
 	}
 	defer stmt.Close()
 
-	rows, err := stmt.Query(key.Schema, key.TableName)
+	rows, err := stmt.QueryContext(ctx, key.Schema, key.TableName)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +197,7 @@ func (p *postgresTrigger) getIndexes(ctx context.Context, key types.TableMetaKey
 	}
 	defer stmt.Close()
 
-	rows, err := stmt.Query(key.Schema, key.TableName)
+	rows, err := stmt.QueryContext(ctx, key.Schema, key.TableName)
 	if err != nil {
 		return nil, err
 	}

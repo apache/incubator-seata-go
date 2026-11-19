@@ -21,6 +21,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
+	"reflect"
 	"sync/atomic"
 
 	"seata.apache.org/seata-go/v2/pkg/util/log"
@@ -88,4 +89,62 @@ func (r *RowsCommitOnClose) Next(dest []driver.Value) error {
 		_ = r.Close()
 	}
 	return err
+}
+
+// preparedRowsCommitOnClose forwards the optional interfaces of prepared query results.
+type preparedRowsCommitOnClose struct{ *RowsCommitOnClose }
+
+func (r *preparedRowsCommitOnClose) Next(dest []driver.Value) error {
+	err := r.rows.Next(dest)
+	if err == io.EOF && !r.HasNextResultSet() {
+		_ = r.Close()
+	}
+	return err
+}
+
+func (r *preparedRowsCommitOnClose) HasNextResultSet() bool {
+	rows, ok := r.rows.(driver.RowsNextResultSet)
+	return atomic.LoadInt32(&r.state) == int32(stateOpen) && ok && rows.HasNextResultSet()
+}
+
+func (r *preparedRowsCommitOnClose) NextResultSet() error {
+	if rows, ok := r.rows.(driver.RowsNextResultSet); ok {
+		return rows.NextResultSet()
+	}
+	return io.EOF
+}
+
+func (r *preparedRowsCommitOnClose) ColumnTypeScanType(index int) reflect.Type {
+	if rows, ok := r.rows.(driver.RowsColumnTypeScanType); ok {
+		return rows.ColumnTypeScanType(index)
+	}
+	return reflect.TypeOf((*any)(nil)).Elem()
+}
+
+func (r *preparedRowsCommitOnClose) ColumnTypeDatabaseTypeName(index int) string {
+	if rows, ok := r.rows.(driver.RowsColumnTypeDatabaseTypeName); ok {
+		return rows.ColumnTypeDatabaseTypeName(index)
+	}
+	return ""
+}
+
+func (r *preparedRowsCommitOnClose) ColumnTypeLength(index int) (int64, bool) {
+	if rows, ok := r.rows.(driver.RowsColumnTypeLength); ok {
+		return rows.ColumnTypeLength(index)
+	}
+	return 0, false
+}
+
+func (r *preparedRowsCommitOnClose) ColumnTypeNullable(index int) (bool, bool) {
+	if rows, ok := r.rows.(driver.RowsColumnTypeNullable); ok {
+		return rows.ColumnTypeNullable(index)
+	}
+	return false, false
+}
+
+func (r *preparedRowsCommitOnClose) ColumnTypePrecisionScale(index int) (int64, int64, bool) {
+	if rows, ok := r.rows.(driver.RowsColumnTypePrecisionScale); ok {
+		return rows.ColumnTypePrecisionScale(index)
+	}
+	return 0, 0, false
 }

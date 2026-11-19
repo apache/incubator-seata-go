@@ -48,6 +48,9 @@ type ATSourceManager struct {
 	worker        *AsyncWorker
 	basic         *datasource.BasicSourceManager
 	rmRemoting    rm.RMRemoting
+
+	registrationMu sync.Mutex
+	replayEpoch    uint64
 }
 
 func (a *ATSourceManager) GetBranchType() branch.BranchType {
@@ -61,8 +64,37 @@ func (a *ATSourceManager) GetCachedResources() *sync.Map {
 
 // RegisterResource register a Resource to be managed by Resource Manager
 func (a *ATSourceManager) RegisterResource(res rm.Resource) error {
-	a.resourceCache.Store(res.GetResourceId(), res)
-	return a.basic.RegisterResource(res)
+	const maxRegistrationAttempts = 3
+
+	a.registrationMu.Lock()
+	epoch := a.replayEpoch
+	a.registrationMu.Unlock()
+
+	for attempt := 0; attempt < maxRegistrationAttempts; attempt++ {
+		if err := a.rmRemoting.RegisterResource(res); err != nil {
+			return err
+		}
+		a.registrationMu.Lock()
+		if epoch == a.replayEpoch {
+			a.resourceCache.Store(res.GetResourceId(), res)
+			a.registrationMu.Unlock()
+			return nil
+		}
+		// A reconnect may have scanned the cache before this resource was published.
+		epoch = a.replayEpoch
+		a.registrationMu.Unlock()
+	}
+	return fmt.Errorf("AT resource registration interrupted by reconnect after %d attempts", maxRegistrationAttempts)
+}
+
+// PrepareResourceReplay marks the start of reconnect replay before the cache scan.
+// The returned function only registers with the TC because cached resources
+// may be replaced while replay is in progress.
+func (a *ATSourceManager) PrepareResourceReplay() func(rm.Resource) error {
+	a.registrationMu.Lock()
+	a.replayEpoch++
+	a.registrationMu.Unlock()
+	return a.rmRemoting.RegisterResource
 }
 
 // UnregisterResource unregister a Resource from the Resource Manager
@@ -72,20 +104,20 @@ func (a *ATSourceManager) UnregisterResource(res rm.Resource) error {
 
 // BranchRollback rollback a branch transaction
 func (a *ATSourceManager) BranchRollback(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
-	var dbResource *DBResource
-	if resource, ok := a.resourceCache.Load(branchResource.ResourceId); !ok {
+	resource, ok := a.resourceCache.Load(branchResource.ResourceId)
+	if !ok {
 		err := fmt.Errorf("DB resource is not exist, resourceId: %s", branchResource.ResourceId)
 		return branch.BranchStatusUnknown, err
-	} else {
-		dbResource, _ = resource.(*DBResource)
+	}
+	dbResource, ok := resource.(*DBResource)
+	if !ok || dbResource == nil {
+		return branch.BranchStatusUnknown, fmt.Errorf("invalid AT resource, resourceId: %s", branchResource.ResourceId)
+	}
+	if dbResource.undoLogMgr == nil {
+		return branch.BranchStatusUnknown, fmt.Errorf("no Undo Log Manager for AT resource, resourceId: %s", branchResource.ResourceId)
 	}
 
-	undoMgr, err := undo.GetUndoLogManager(dbResource.dbType)
-	if err != nil {
-		return branch.BranchStatusUnknown, err
-	}
-
-	if err := undoMgr.RunUndo(ctx, branchResource.Xid, branchResource.BranchId, dbResource.db, dbResource.dbName, dbResource.metaCache); err != nil {
+	if err := dbResource.undoLogMgr.RunUndo(ctx, branchResource.Xid, branchResource.BranchId, dbResource.db, dbResource.dbName, dbResource.metaCache); err != nil {
 		transErr, ok := err.(*serr.SeataError)
 		if !ok {
 			return branch.BranchStatusPhaseoneFailed, err

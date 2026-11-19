@@ -355,30 +355,79 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 	}
 }
 
-func TestBaseTableMetaCache_GracefulShutdown(t *testing.T) {
-	// Create context manually as we are bypassing NewBaseCache
-	ctx, cancel := context.WithCancel(context.Background())
+type shutdownTrigger struct {
+	mockTrigger
+	started  chan struct{}
+	canceled chan struct{}
+	release  chan struct{}
+}
 
+func (s *shutdownTrigger) LoadAll(ctx context.Context, _ *sql.Conn, _ ...types.TableMetaKey) (map[types.TableMetaKey]types.TableMeta, error) {
+	close(s.started)
+	<-ctx.Done()
+	close(s.canceled)
+	<-s.release
+	return nil, ctx.Err()
+}
+
+func TestBaseTableMetaCache_GracefulShutdown(t *testing.T) {
+	db, _, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	trigger := &shutdownTrigger{
+		started:  make(chan struct{}),
+		canceled: make(chan struct{}),
+		release:  make(chan struct{}),
+	}
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(trigger.release) }) }
+	defer release()
 	c := &BaseTableMetaCache{
-		expireDuration:  1 * time.Millisecond,
-		refreshInterval: 1 * time.Millisecond,
-		cache:           make(map[types.TableMetaKey]*entry),
-		// db and dbName are unset, so refresh() logic will return early, which is fine for coverage
+		expireDuration:  time.Hour,
+		refreshInterval: time.Hour,
+		cache:           map[types.TableMetaKey]*entry{{TableName: "test"}: {}},
+		trigger:         trigger,
+		db:              db,
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	timeout := time.NewTimer(5 * time.Second)
+	defer timeout.Stop()
+	if err := c.Init(ctx); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-trigger.started:
+	case <-timeout.C:
+		t.Fatal("refresh did not start")
 	}
 
-	// Init starts the goroutines
-	err := c.Init(ctx)
-	assert.Nil(t, err)
-
-	// Give enough time for tickers to trigger multiple times
-	time.Sleep(20 * time.Millisecond)
-
-	// Cancel context to stop goroutines
-	cancel()
-
-	// Destroy (now a no-op)
-	err = c.Destroy()
-	assert.Nil(t, err)
+	destroyed := make(chan error, 1)
+	go func() { destroyed <- c.Destroy() }()
+	select {
+	case <-trigger.canceled:
+	case <-timeout.C:
+		t.Fatal("Destroy did not cancel the refresh")
+	}
+	select {
+	case <-destroyed:
+		t.Fatal("Destroy returned before the refresh finished")
+	default:
+	}
+	release()
+	select {
+	case err := <-destroyed:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-timeout.C:
+		t.Fatal("Destroy did not return after releasing the refresh")
+	}
+	assert.Zero(t, db.Stats().InUse)
+	assert.NoError(t, c.Destroy())
 }
 
 type identityTrigger struct{}
