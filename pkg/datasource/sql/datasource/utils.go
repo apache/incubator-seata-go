@@ -108,12 +108,12 @@ func DeepEqual(x, y interface{}) bool {
 	typy := reflect.ValueOf(y)
 
 	switch typx.Kind() {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		typx = typx.Elem()
 	}
 
 	switch typy.Kind() {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		typy = typy.Elem()
 	}
 	if (typx.Kind() == reflect.Float32 || typx.Kind() == reflect.Float64) &&

@@ -78,7 +78,7 @@ func TestBuildSelectPKSQL(t *testing.T) {
 
 	selSQL, err := e.buildSelectPKSQL(ctx.SelectStmt, &metaData)
 	assert.Nil(t, err)
-	assert.Equal(t, "SELECT SQL_NO_CACHE id,order_id FROM t_user WHERE age>? FOR UPDATE" == selSQL, true)
+	assert.Equal(t, "SELECT SQL_NO_CACHE id,order_id FROM t_user WHERE age>? FOR UPDATE", selSQL)
 }
 
 func TestBuildSelectPKSQL_PostgreSQL(t *testing.T) {
@@ -306,4 +306,15 @@ func (m mockRows) Next(dest []driver.Value) error {
 	}
 
 	return nil
+}
+
+func TestBuildLockKey_EmptyPrimaryKey(t *testing.T) {
+	e := selectForUpdateExecutor{}
+	metaData := types.TableMeta{
+		TableName: "t_user",
+		Indexs:    map[string]types.IndexMeta{},
+	}
+	rows := mockRows{}
+	lockKey := e.buildLockKey(rows, &metaData)
+	assert.Equal(t, "", lockKey)
 }

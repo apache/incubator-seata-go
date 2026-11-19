@@ -172,8 +172,7 @@ func (p *ProcessContextImpl) GetVariableLocally(name string) interface{} {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	value, _ := p.mp[name]
-	return value
+	return p.mp[name]
 }
 
 func (p *ProcessContextImpl) SetVariableLocally(name string, value interface{}) {
@@ -204,7 +203,7 @@ func (p *ProcessContextImpl) RemoveVariableLocally(name string) interface{} {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	value, _ := p.mp[name]
+	value := p.mp[name]
 	delete(p.mp, name)
 	return value
 }

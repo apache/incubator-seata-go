@@ -35,6 +35,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
 type tableMetaReaderForTest struct {
@@ -598,6 +599,36 @@ func TestBaseExecBuildLockKey_EscapedColumnNames(t *testing.T) {
 			assert.Equal(t, tt.expected, lockKeys)
 		})
 	}
+}
+
+func TestBaseExecutorBuildSelectArgs(t *testing.T) {
+	exec := &baseExecutor{}
+
+	sql := "SELECT * FROM t_user WHERE id = ? AND age BETWEEN ? AND ? AND name IN (?, ?) ORDER BY id LIMIT ?, ?"
+	ctx, err := parser.DoParser(sql)
+	assert.NoError(t, err)
+	assert.NotNil(t, ctx)
+	assert.NotNil(t, ctx.SelectStmt)
+
+	rawArgs := []driver.Value{int64(1), 18, 30, "Alice", "Bob", 0, 10}
+	namedArgs := util.ValueToNamedValue(rawArgs)
+
+	selectArgs, err := exec.buildSelectArgs(ctx.SelectStmt, namedArgs)
+	assert.NoError(t, err)
+	assert.Equal(t, rawArgs, util.NamedValueToValue(selectArgs))
+
+	// Test subquery and derived table in FROM clause
+	sqlComplex := "SELECT * FROM (SELECT id FROM t1 WHERE status = ?) AS tmp WHERE tmp.id IN (SELECT target_id FROM rel WHERE score > ?)"
+	ctxComplex, err := parser.DoParser(sqlComplex)
+	assert.NoError(t, err)
+	assert.NotNil(t, ctxComplex)
+	assert.NotNil(t, ctxComplex.SelectStmt)
+
+	rawArgsComplex := []driver.Value{1, 90}
+	namedArgsComplex := util.ValueToNamedValue(rawArgsComplex)
+	selectArgsComplex, err := exec.buildSelectArgs(ctxComplex.SelectStmt, namedArgsComplex)
+	assert.NoError(t, err)
+	assert.Equal(t, rawArgsComplex, util.NamedValueToValue(selectArgsComplex))
 }
 
 func TestBaseExecutorWriteDatabaseBoundary(t *testing.T) {

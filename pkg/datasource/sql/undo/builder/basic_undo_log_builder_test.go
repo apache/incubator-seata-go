@@ -228,6 +228,84 @@ func TestBuildLockKey(t *testing.T) {
 	}
 }
 
+func TestBasicUndoLogBuilder_BuildSelectArgs_ComplexAST(t *testing.T) {
+	builder := &BasicUndoLogBuilder{}
+
+	tests := []struct {
+		name     string
+		sql      string
+		args     []driver.Value
+		expected []driver.Value
+	}{
+		{
+			name:     "Binary and Between",
+			sql:      "SELECT * FROM t WHERE a = ? AND b BETWEEN ? AND ?",
+			args:     []driver.Value{1, 10, 20},
+			expected: []driver.Value{1, 10, 20},
+		},
+		{
+			name:     "In and Unary and IsNull",
+			sql:      "SELECT * FROM t WHERE id IN (?, ?) AND NOT (status = ?) AND deleted_at IS NULL",
+			args:     []driver.Value{100, 200, 1},
+			expected: []driver.Value{100, 200, 1},
+		},
+		{
+			name:     "FuncCall and Like",
+			sql:      "SELECT * FROM t WHERE name LIKE ? AND age > concat(?, ?)",
+			args:     []driver.Value{"tom%", "1", "8"},
+			expected: []driver.Value{"tom%", "1", "8"},
+		},
+		{
+			name:     "Case When Expression",
+			sql:      "SELECT * FROM t WHERE val = CASE WHEN a = ? THEN ? ELSE ? END",
+			args:     []driver.Value{1, 10, 20},
+			expected: []driver.Value{1, 10, 20},
+		},
+		{
+			name:     "Parentheses and Unary",
+			sql:      "SELECT * FROM t WHERE NOT (a = ?) AND (b = ?)",
+			args:     []driver.Value{1, 2},
+			expected: []driver.Value{1, 2},
+		},
+		{
+			name:     "Subquery in IN and Exists",
+			sql:      "SELECT * FROM t WHERE id IN (SELECT target_id FROM rel WHERE score > ?) AND EXISTS (SELECT 1 FROM t3 WHERE y = ?)",
+			args:     []driver.Value{90, 1},
+			expected: []driver.Value{90, 1},
+		},
+		{
+			name:     "From Derived Table Subquery",
+			sql:      "SELECT * FROM (SELECT id, status FROM t1 WHERE status = ?) AS tmp WHERE tmp.id = ?",
+			args:     []driver.Value{1, 100},
+			expected: []driver.Value{1, 100},
+		},
+		{
+			name:     "Pattern In with Left Parameter",
+			sql:      "SELECT * FROM t WHERE ? IN (1, 2) AND name = ?",
+			args:     []driver.Value{10, "alice"},
+			expected: []driver.Value{10, "alice"},
+		},
+		{
+			name:     "OrderBy and Limit",
+			sql:      "SELECT * FROM t WHERE a = ? ORDER BY b LIMIT ?, ?",
+			args:     []driver.Value{10, 0, 5},
+			expected: []driver.Value{10, 0, 5},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parseCtx, err := parser.DoParser(tt.sql)
+			assert.NoError(t, err)
+			assert.NotNil(t, parseCtx.SelectStmt)
+
+			actual, err := builder.buildSelectArgs(parseCtx.SelectStmt, tt.args)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
 // Only database I/O is replaced. Parsing, image building, lock generation
 // and after-image SQL all use production code.
 type legacyBuilderTestConn struct {

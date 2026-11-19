@@ -26,8 +26,8 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 
-	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/format"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/format"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/util/bytes"
@@ -116,7 +116,11 @@ func (u *MySQLDeleteUndoLogBuilder) buildBeforeImageSQL(query string, args []dri
 	sql := string(b.Bytes())
 	log.Infof("build select sql by delete sourceQuery, sql {%s}", sql)
 
-	return sql, u.buildSelectArgs(&selStmt, args), nil
+	selectArgs, err := u.buildSelectArgs(&selStmt, args)
+	if err != nil {
+		return "", nil, err
+	}
+	return sql, selectArgs, nil
 }
 
 func (u *MySQLDeleteUndoLogBuilder) GetExecutorType() types.ExecutorType {

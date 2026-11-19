@@ -116,14 +116,14 @@ func (a AsyncEventBus) Offer(ctx context.Context, event Event) (bool, error) {
 	eventConsumerList := a.EventConsumerList(event)
 	if len(eventConsumerList) == 0 {
 		errStr := fmt.Sprintf("cannot find event handler by type: %T", event)
-		log.Errorf(errStr)
+		log.Errorf("%s", errStr)
 		return false, errors.New(errStr)
 	}
 
 	processContext, ok := event.(ProcessContext)
 	if !ok {
 		errStr := fmt.Sprintf("event %T is illegal, required process_ctrl.ProcessContext", event)
-		log.Errorf(errStr)
+		log.Errorf("%s", errStr)
 		return false, errors.New(errStr)
 	}
 
