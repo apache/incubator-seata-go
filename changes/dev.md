@@ -32,6 +32,7 @@
 
 ### bugfix：
 
+  - [[#1176](https://github.com/apache/incubator-seata-go/issues/1176)] store TM createTime as time.Time so sub-second timeouts are not treated as expired immediately
   - route transactions to their IPv6 coordinator when the transaction ID and connection use different IPv6 address formats
   - [[#1197](https://github.com/apache/incubator-seata-go/pull/1197)] prevent XA rollback errors from panicking after branch cleanup, discard connections after failed rollback, and reset rollback state when a pooled connection starts a new branch
   - [[#128](https://github.com/apache/incubator-seata-go/issues/128)] re-register cached RM resources after remoting sessions reconnect

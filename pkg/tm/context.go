@@ -62,7 +62,7 @@ type ContextVariable struct {
 }
 
 type TimeInfo struct {
-	createTime time.Duration
+	createTime time.Time
 	timeout    time.Duration
 }
 
