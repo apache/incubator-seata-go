@@ -87,14 +87,17 @@ func (a *ATSourceManager) RegisterResource(res rm.Resource) error {
 	return fmt.Errorf("AT resource registration interrupted by reconnect after %d attempts", maxRegistrationAttempts)
 }
 
-// PrepareResourceReplay marks the start of reconnect replay before the cache scan.
-// The returned function only registers with the TC because cached resources
-// may be replaced while replay is in progress.
-func (a *ATSourceManager) PrepareResourceReplay() func(rm.Resource) error {
+// PrepareResourceReplay marks the start of reconnect replay before the cache scan,
+// independently of the connection used to send registration requests.
+func (a *ATSourceManager) PrepareResourceReplay() {
 	a.registrationMu.Lock()
 	a.replayEpoch++
 	a.registrationMu.Unlock()
-	return a.rmRemoting.RegisterResource
+}
+
+// ReregisterResource restores TC registration without publishing a stale snapshot.
+func (a *ATSourceManager) ReregisterResource(res rm.Resource) error {
+	return a.rmRemoting.RegisterResource(res)
 }
 
 // UnregisterResource unregister a Resource from the Resource Manager
