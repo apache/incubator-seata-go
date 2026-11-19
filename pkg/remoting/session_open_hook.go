@@ -20,15 +20,17 @@ package remoting
 import (
 	"errors"
 	"sync"
+
+	"seata.apache.org/seata-go/v2/pkg/protocol/connection"
 )
 
 var (
 	sessionOpenHooksMu sync.RWMutex
-	sessionOpenHooks   []func() error
+	sessionOpenHooks   []func(connection.Connection) error
 )
 
 // RegisterSessionOpenHook registers a callback to run after a remoting session is opened.
-func RegisterSessionOpenHook(hook func() error) {
+func RegisterSessionOpenHook(hook func(connection.Connection) error) {
 	if hook == nil {
 		return
 	}
@@ -39,14 +41,14 @@ func RegisterSessionOpenHook(hook func() error) {
 }
 
 // RunSessionOpenHooks runs the callbacks registered for newly opened sessions.
-func RunSessionOpenHooks() error {
+func RunSessionOpenHooks(conn connection.Connection) error {
 	sessionOpenHooksMu.RLock()
-	hooks := append([]func() error(nil), sessionOpenHooks...)
+	hooks := append([]func(connection.Connection) error(nil), sessionOpenHooks...)
 	sessionOpenHooksMu.RUnlock()
 
 	var errs []error
 	for _, hook := range hooks {
-		if err := hook(); err != nil {
+		if err := hook(conn); err != nil {
 			errs = append(errs, err)
 		}
 	}

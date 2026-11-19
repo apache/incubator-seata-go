@@ -78,19 +78,23 @@ func TestChannelManagerRegisterTMUsesClientRegistrationMessageType(t *testing.T)
 	})
 
 	var request *pb.RegisterTMRequestProto
-	patches := gomonkey.ApplyMethod(reflect.TypeOf(GetGrpcRemotingClient()), "SendAsyncRequest",
-		func(_ *GrpcRemotingClient, msg interface{}) error {
-			request = msg.(*pb.RegisterTMRequestProto)
+	var target *Channel
+	patches := gomonkey.ApplyMethod(reflect.TypeOf(GetGrpcRemotingClient().grpcRemoting), "SendAsync",
+		func(_ *GrpcRemoting, msg message.RpcMessage, channel *Channel, _ callbackMethod) error {
+			request = msg.Body.(*pb.RegisterTMRequestProto)
+			target = channel
 			return nil
 		})
 	defer patches.Reset()
 
 	manager := newTestChannelManager(nil)
-	assert.NoError(t, manager.registerTm("127.0.0.1:8091"))
+	channel := newSelectableTestChannel("127.0.0.1:8091")
+	assert.NoError(t, manager.registerTm("127.0.0.1:8091", channel))
 	if assert.NotNil(t, request) {
 		assert.Equal(t, pb.MessageTypeProto_TYPE_REG_CLT,
 			request.GetAbstractIdentifyRequest().GetAbstractMessage().GetMessageType())
 	}
+	assert.Same(t, channel, target)
 }
 
 func TestChannelManagerFallsBackToLookupWhenRegistryDoesNotSubscribe(t *testing.T) {

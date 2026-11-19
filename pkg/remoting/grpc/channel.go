@@ -129,13 +129,13 @@ func (c *Channel) reconnect(client pb.SeataServiceClient) error {
 		c.regLock.Lock()
 		defer c.regLock.Unlock()
 		if !c.registered.Load() {
-			if err = channelManager.registerTm(c.addr); err != nil {
+			if err = channelManager.registerTm(c.addr, c); err != nil {
 				return err
 			}
 			c.registered.Store(true)
 		}
 	}
-	if err = remoting.RunSessionOpenHooks(); err != nil {
+	if err = remoting.RunSessionOpenHooks(c); err != nil {
 		log.Errorf("register cached RM resources error: {%v}", err)
 	}
 

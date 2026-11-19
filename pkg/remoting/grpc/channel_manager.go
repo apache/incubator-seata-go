@@ -225,7 +225,7 @@ func (g *ChannelManager) startGrpcChannel(instance *discovery.ServiceInstance, e
 		g.deleteChannelStart(addr, entry)
 		return
 	}
-	if err = g.registerTm(addr); err != nil {
+	if err = g.registerTm(addr, channel); err != nil {
 		log.Errorf("%v", err)
 		g.releaseChannelByAddr(addr)
 		return
@@ -295,7 +295,7 @@ func (g *ChannelManager) initChannel(channel *Channel) (*Channel, error) {
 	return channel, nil
 }
 
-func (g *ChannelManager) registerTm(addr string) error {
+func (g *ChannelManager) registerTm(addr string, channel *Channel) error {
 	conf := config.GetSeataConfig()
 
 	request := &pb.RegisterTMRequestProto{
@@ -306,7 +306,7 @@ func (g *ChannelManager) registerTm(addr string) error {
 			TransactionServiceGroup: conf.TxServiceGroup,
 		},
 	}
-	err := GetGrpcRemotingClient().SendAsyncRequest(request)
+	err := GetGrpcRemotingClient().SendAsyncRequestOnChannel(request, channel)
 	if err != nil {
 		g.releaseChannelByAddr(addr)
 		return fmt.Errorf("register TM error: {%#v}", err.Error())

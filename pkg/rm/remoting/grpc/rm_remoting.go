@@ -20,6 +20,7 @@ package grpc
 import (
 	"fmt"
 
+	"seata.apache.org/seata-go/v2/pkg/protocol/connection"
 	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 	"seata.apache.org/seata-go/v2/pkg/remoting/grpc"
 	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
@@ -114,6 +115,22 @@ func (r *GrpcRMRemoting) LockQuery(param rm.LockQueryParam) (bool, error) {
 }
 
 func (r *GrpcRMRemoting) RegisterResource(resource rm.Resource) error {
+	return r.registerResource(resource, nil)
+}
+
+// RegisterResourceOnConnection registers a resource through the reconnected gRPC channel.
+func (r *GrpcRMRemoting) RegisterResourceOnConnection(resource rm.Resource, conn connection.Connection) error {
+	if conn == nil || conn.IsClosed() {
+		return fmt.Errorf("gRPC channel for resource registration is closed")
+	}
+	channel, ok := conn.(*grpc.Channel)
+	if !ok || channel == nil {
+		return fmt.Errorf("unexpected gRPC connection type %T", conn)
+	}
+	return r.registerResource(resource, channel)
+}
+
+func (r *GrpcRMRemoting) registerResource(resource rm.Resource, channel *grpc.Channel) error {
 	req := &pb.RegisterRMRequestProto{
 		AbstractIdentifyRequest: &pb.AbstractIdentifyRequestProto{
 			AbstractMessage:         &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_REG_RM},
@@ -123,7 +140,7 @@ func (r *GrpcRMRemoting) RegisterResource(resource rm.Resource) error {
 		},
 		ResourceIds: resource.GetResourceId(),
 	}
-	res, err := grpc.GetGrpcRemotingClient().SendSyncRequest(req)
+	res, err := sendSyncRequest(req, channel)
 	if err != nil {
 		log.Errorf("RegisterResourceManager error: {%#v}", err.Error())
 		return err
@@ -134,8 +151,14 @@ func (r *GrpcRMRemoting) RegisterResource(resource rm.Resource) error {
 	} else {
 		r.onRegisterRMFailure(res.(*pb.RegisterRMResponseProto))
 	}
-
 	return nil
+}
+
+func sendSyncRequest(req *pb.RegisterRMRequestProto, channel *grpc.Channel) (interface{}, error) {
+	if channel == nil {
+		return grpc.GetGrpcRemotingClient().SendSyncRequest(req)
+	}
+	return grpc.GetGrpcRemotingClient().SendSyncRequestOnChannel(req, channel)
 }
 
 func isQueryLockSuccess(response interface{}) bool {

@@ -20,19 +20,25 @@ package remoting
 import (
 	"errors"
 	"testing"
+
+	"seata.apache.org/seata-go/v2/pkg/protocol/connection"
 )
 
 func TestRunSessionOpenHooks(t *testing.T) {
-	var hooks []func() error
+	var hooks []func(connection.Connection) error
 	withSessionOpenHooks(t, &hooks)
 	called := 0
-	RegisterSessionOpenHook(func() error {
+	conn := testConnection{}
+	RegisterSessionOpenHook(func(actual connection.Connection) error {
 		called++
+		if actual != conn {
+			t.Fatalf("hook connection = %v, want %v", actual, conn)
+		}
 		return nil
 	})
 	RegisterSessionOpenHook(nil)
 
-	if err := RunSessionOpenHooks(); err != nil {
+	if err := RunSessionOpenHooks(conn); err != nil {
 		t.Fatalf("RunSessionOpenHooks() error = %v", err)
 	}
 	if called != 1 {
@@ -41,21 +47,21 @@ func TestRunSessionOpenHooks(t *testing.T) {
 }
 
 func TestRunSessionOpenHooksJoinsErrorsAndContinues(t *testing.T) {
-	var hooks []func() error
+	var hooks []func(connection.Connection) error
 	withSessionOpenHooks(t, &hooks)
 	firstErr := errors.New("first")
 	secondErr := errors.New("second")
 	called := 0
-	RegisterSessionOpenHook(func() error {
+	RegisterSessionOpenHook(func(connection.Connection) error {
 		called++
 		return firstErr
 	})
-	RegisterSessionOpenHook(func() error {
+	RegisterSessionOpenHook(func(connection.Connection) error {
 		called++
 		return secondErr
 	})
 
-	err := RunSessionOpenHooks()
+	err := RunSessionOpenHooks(testConnection{})
 	if !errors.Is(err, firstErr) || !errors.Is(err, secondErr) {
 		t.Fatalf("RunSessionOpenHooks() error = %v, want both hook errors", err)
 	}
@@ -64,7 +70,12 @@ func TestRunSessionOpenHooksJoinsErrorsAndContinues(t *testing.T) {
 	}
 }
 
-func withSessionOpenHooks(t *testing.T, hooks *[]func() error) {
+type testConnection struct{}
+
+func (testConnection) RemoteAddr() string { return "127.0.0.1:8091" }
+func (testConnection) IsClosed() bool     { return false }
+
+func withSessionOpenHooks(t *testing.T, hooks *[]func(connection.Connection) error) {
 	t.Helper()
 	sessionOpenHooksMu.Lock()
 	previous := sessionOpenHooks

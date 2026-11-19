@@ -64,13 +64,13 @@ func (g *gettyClientHandler) OnOpen(session getty.Session) error {
 			ApplicationId:           seataConfig.ApplicationID,
 			TransactionServiceGroup: seataConfig.TxServiceGroup,
 		}}
-		err := GetGettyRemotingClient().SendAsyncRequest(request)
+		err := GetGettyRemotingClient().SendAsyncRequestOnSession(request, session)
 		if err != nil {
 			log.Errorf("OnOpen error: {%#v}", err.Error())
 			sessionManager.releaseSession(session)
 			return
 		}
-		if err := remoting.RunSessionOpenHooks(); err != nil {
+		if err := remoting.RunSessionOpenHooks(session); err != nil {
 			log.Errorf("register cached RM resources error: {%v}", err)
 			sessionManager.releaseSession(session)
 		}

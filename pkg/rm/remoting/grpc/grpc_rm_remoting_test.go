@@ -31,6 +31,21 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/rm"
 )
 
+type registerTestResource struct{ id string }
+
+func (r registerTestResource) GetResourceGroupId() string       { return "group" }
+func (r registerTestResource) GetResourceId() string            { return r.id }
+func (r registerTestResource) GetBranchType() branch.BranchType { return branch.BranchTypeAT }
+
+func registerRMResponse(identified bool, msg string) *pb.RegisterRMResponseProto {
+	return &pb.RegisterRMResponseProto{
+		AbstractIdentifyResponse: &pb.AbstractIdentifyResponseProto{
+			AbstractResultMessage: &pb.AbstractResultMessageProto{Msg: msg},
+			Identified:            identified,
+		},
+	}
+}
+
 func TestGetGrpcRMRemotingInstance(t *testing.T) {
 	rm.SetRMRemotingInstance(&GrpcRMRemoting{})
 	tests := []struct {
@@ -85,3 +100,47 @@ func TestGrpcRMRemotingBranchReportUsesStatusReportMessageType(t *testing.T) {
 			request.GetAbstractTransactionRequest().GetAbstractMessage().GetMessageType())
 	}
 }
+
+func TestGrpcRMRemotingRegisterResourceOnConnection(t *testing.T) {
+	target := &remotinggrpc.Channel{}
+	var request *pb.RegisterRMRequestProto
+	var gotTarget *remotinggrpc.Channel
+	patches := gomonkey.ApplyMethod(reflect.TypeOf(remotinggrpc.GetGrpcRemotingClient()), "SendSyncRequestOnChannel",
+		func(_ *remotinggrpc.GrpcRemotingClient, msg interface{}, channel *remotinggrpc.Channel) (interface{}, error) {
+			request = msg.(*pb.RegisterRMRequestProto)
+			gotTarget = channel
+			return registerRMResponse(true, ""), nil
+		})
+	defer patches.Reset()
+
+	err := (&GrpcRMRemoting{}).RegisterResourceOnConnection(registerTestResource{id: "rm-resource"}, target)
+	assert.NoError(t, err)
+	assert.Same(t, target, gotTarget)
+	if assert.NotNil(t, request) {
+		assert.Equal(t, "rm-resource", request.GetResourceIds())
+		assert.Equal(t, pb.MessageTypeProto_TYPE_REG_RM,
+			request.GetAbstractIdentifyRequest().GetAbstractMessage().GetMessageType())
+	}
+}
+
+func TestGrpcRMRemotingRegisterResourceOnConnectionRejectsWrongConnection(t *testing.T) {
+	err := (&GrpcRMRemoting{}).RegisterResourceOnConnection(
+		registerTestResource{id: "rm-resource"}, wrongConnection{})
+	assert.ErrorContains(t, err, "unexpected gRPC connection type")
+}
+
+func TestGrpcRMRemotingRegisterResourceOnConnectionRejectsClosedChannel(t *testing.T) {
+	err := (&GrpcRMRemoting{}).RegisterResourceOnConnection(
+		registerTestResource{id: "rm-resource"}, closedGRPCChannel{})
+	assert.ErrorContains(t, err, "channel for resource registration is closed")
+}
+
+type wrongConnection struct{}
+
+func (wrongConnection) RemoteAddr() string { return "127.0.0.1:8091" }
+func (wrongConnection) IsClosed() bool     { return false }
+
+type closedGRPCChannel struct{}
+
+func (closedGRPCChannel) RemoteAddr() string { return "127.0.0.1:8091" }
+func (closedGRPCChannel) IsClosed() bool     { return true }

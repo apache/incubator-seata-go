@@ -20,6 +20,8 @@ package getty
 import (
 	"fmt"
 
+	dubbogetty "github.com/apache/dubbo-getty"
+	"seata.apache.org/seata-go/v2/pkg/protocol/connection"
 	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 	"seata.apache.org/seata-go/v2/pkg/remoting/getty"
 	"seata.apache.org/seata-go/v2/pkg/rm"
@@ -102,6 +104,22 @@ func (r *GettyRMRemoting) LockQuery(param rm.LockQueryParam) (bool, error) {
 }
 
 func (r *GettyRMRemoting) RegisterResource(resource rm.Resource) error {
+	return r.registerResource(resource, nil)
+}
+
+// RegisterResourceOnConnection registers a resource through the reconnected Getty session.
+func (r *GettyRMRemoting) RegisterResourceOnConnection(resource rm.Resource, conn connection.Connection) error {
+	if conn == nil || conn.IsClosed() {
+		return fmt.Errorf("Getty session for resource registration is closed")
+	}
+	session, ok := conn.(dubbogetty.Session)
+	if !ok || session == nil {
+		return fmt.Errorf("unexpected Getty connection type %T", conn)
+	}
+	return r.registerResource(resource, session)
+}
+
+func (r *GettyRMRemoting) registerResource(resource rm.Resource, session dubbogetty.Session) error {
 	req := message.RegisterRMRequest{
 		AbstractIdentifyRequest: message.AbstractIdentifyRequest{
 			Version:                 "1.5.2",
@@ -110,7 +128,7 @@ func (r *GettyRMRemoting) RegisterResource(resource rm.Resource) error {
 		},
 		ResourceIds: resource.GetResourceId(),
 	}
-	res, err := getty.GetGettyRemotingClient().SendSyncRequest(req)
+	res, err := sendSyncRequest(req, session)
 	if err != nil {
 		log.Errorf("RegisterResourceManager error: {%#v}", err.Error())
 		return err
@@ -121,8 +139,14 @@ func (r *GettyRMRemoting) RegisterResource(resource rm.Resource) error {
 	} else {
 		r.onRegisterRMFailure(res.(message.RegisterRMResponse))
 	}
-
 	return nil
+}
+
+func sendSyncRequest(req message.RegisterRMRequest, session dubbogetty.Session) (interface{}, error) {
+	if session == nil {
+		return getty.GetGettyRemotingClient().SendSyncRequest(req)
+	}
+	return getty.GetGettyRemotingClient().SendSyncRequestOnSession(req, session)
 }
 
 func isQueryLockSuccess(response interface{}) bool {

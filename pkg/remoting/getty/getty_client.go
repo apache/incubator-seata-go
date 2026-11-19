@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sync"
 
+	getty "github.com/apache/dubbo-getty"
 	gxtime "github.com/dubbogo/gost/time"
 	"go.uber.org/atomic"
 
@@ -52,8 +53,20 @@ func GetGettyRemotingClient() *GettyRemotingClient {
 }
 
 func (client *GettyRemotingClient) SendAsyncRequest(msg interface{}) error {
+	return client.sendAsyncRequest(msg, nil)
+}
+
+// SendAsyncRequestOnSession sends an async request through a specific Getty session.
+func (client *GettyRemotingClient) SendAsyncRequestOnSession(msg interface{}, session getty.Session) error {
+	if session == nil {
+		return fmt.Errorf("session is closed")
+	}
+	return client.sendAsyncRequest(msg, session)
+}
+
+func (client *GettyRemotingClient) sendAsyncRequest(msg interface{}, session getty.Session) error {
 	rpcMessage := newAsyncRequestMessage(int32(client.idGenerator.Inc()), msg)
-	return client.gettyRemoting.SendAsync(rpcMessage, nil, client.asyncCallback)
+	return client.gettyRemoting.SendAsync(rpcMessage, session, client.asyncCallback)
 }
 
 func newAsyncRequestMessage(id int32, msg interface{}) message.RpcMessage {
@@ -83,7 +96,22 @@ func (client *GettyRemotingClient) SendAsyncResponse(msgID int32, msg interface{
 	return client.gettyRemoting.SendAsync(rpcMessage, nil, nil)
 }
 
+// Keep this method out of line because existing remoting tests replace it with gomonkey.
+//
+//go:noinline
 func (client *GettyRemotingClient) SendSyncRequest(msg interface{}) (interface{}, error) {
+	return client.sendSyncRequest(msg, nil)
+}
+
+// SendSyncRequestOnSession sends a sync request through a specific Getty session.
+func (client *GettyRemotingClient) SendSyncRequestOnSession(msg interface{}, session getty.Session) (interface{}, error) {
+	if session == nil {
+		return nil, fmt.Errorf("session is closed")
+	}
+	return client.sendSyncRequest(msg, session)
+}
+
+func (client *GettyRemotingClient) sendSyncRequest(msg interface{}, session getty.Session) (interface{}, error) {
 	rpcMessage := message.RpcMessage{
 		ID:         int32(client.idGenerator.Inc()),
 		Type:       message.RequestTypeRequestSync,
@@ -91,7 +119,7 @@ func (client *GettyRemotingClient) SendSyncRequest(msg interface{}) (interface{}
 		Compressor: 0,
 		Body:       msg,
 	}
-	return client.gettyRemoting.SendSync(rpcMessage, nil, client.syncCallback)
+	return client.gettyRemoting.SendSync(rpcMessage, session, client.syncCallback)
 }
 
 func (g *GettyRemotingClient) asyncCallback(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error) {

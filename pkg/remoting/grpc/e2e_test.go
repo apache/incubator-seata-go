@@ -49,10 +49,36 @@ func (s *mockSeataServer) SendRequest(stream pb.SeataService_SendRequestServer) 
 		}
 		s.received <- msg
 
-		// Echo back a GlobalBeginResponse with the same ID so the client Future resolves.
-		resp := buildGlobalBeginResponse(msg.Id)
+		resp := buildResponse(msg)
 		_ = stream.Send(resp)
 	}
+}
+
+func buildResponse(request *pb.GrpcMessageProto) *pb.GrpcMessageProto {
+	rpcMessage, err := Decode(request)
+	if err != nil {
+		return buildGlobalBeginResponse(request.Id)
+	}
+	if _, ok := rpcMessage.Body.(*pb.RegisterRMRequestProto); ok {
+		respMsg := message.RpcMessage{
+			ID:   request.Id,
+			Type: message.RequestType(pb.MessageTypeProto_TYPE_REG_RM_RESULT),
+			Body: &pb.RegisterRMResponseProto{
+				AbstractIdentifyResponse: &pb.AbstractIdentifyResponseProto{
+					AbstractResultMessage: &pb.AbstractResultMessageProto{
+						AbstractMessage: &pb.AbstractMessageProto{
+							MessageType: pb.MessageTypeProto_TYPE_REG_RM_RESULT,
+						},
+						ResultCode: pb.ResultCodeProto_Success,
+					},
+					Identified: true,
+				},
+			},
+		}
+		proto, _ := Encode(respMsg)
+		return proto
+	}
+	return buildGlobalBeginResponse(request.Id)
 }
 
 func buildGlobalBeginResponse(id int32) *pb.GrpcMessageProto {
@@ -90,6 +116,10 @@ func startMockServer(t *testing.T) (addr string, received chan *pb.GrpcMessagePr
 
 // newTestChannel dials the mock server and returns a ready Channel.
 func newTestChannel(t *testing.T, addr string) *Channel {
+	return newTestChannelWithReceiveLoop(t, addr, true)
+}
+
+func newTestChannelWithReceiveLoop(t *testing.T, addr string, startReceiveLoop bool) *Channel {
 	t.Helper()
 	dialCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -112,11 +142,20 @@ func newTestChannel(t *testing.T, addr string) *Channel {
 		regLock:    &sync.Mutex{},
 		registered: &atomic.Bool{},
 	}
-	ch.wg.Add(2)
+	ch.wg.Add(1)
+	if startReceiveLoop {
+		ch.wg.Add(1)
+	}
 	go ch.sendProcessor()
-	go GetGrpcClientHandlerInstance().StartReceiveLoop(context.Background(), ch)
+	if startReceiveLoop {
+		go GetGrpcClientHandlerInstance().StartReceiveLoop(context.Background(), ch)
+	}
 
-	t.Cleanup(func() { ch.close(); conn.Close() })
+	t.Cleanup(func() {
+		ch.close()
+		conn.Close()
+		ch.wg.Wait()
+	})
 	return ch
 }
 
@@ -187,6 +226,48 @@ func TestE2E_SyncRequestResponseFuture(t *testing.T) {
 			resp.AbstractTransactionResponse.AbstractResultMessage.ResultCode)
 	case <-time.After(3 * time.Second):
 		t.Fatal("timeout: Future was not resolved")
+	}
+}
+
+func TestE2E_SyncRequestUsesExplicitChannel(t *testing.T) {
+	handler := GetGrpcClientHandlerInstance()
+	handler.typeMap["RegisterRMResponseProto"] = message.MessageTypeRegRmResult
+	handler.processorMap[message.MessageTypeRegRmResult] = &testResponseProcessor{
+		remoting: GetGrpcRemotingClient().grpcRemoting,
+	}
+
+	explicitAddr, explicitReceived, stopExplicit := startMockServer(t)
+	defer stopExplicit()
+	selectedAddr, selectedReceived, stopSelected := startMockServer(t)
+	defer stopSelected()
+
+	explicit := newTestChannel(t, explicitAddr)
+	newTestChannel(t, selectedAddr)
+
+	req := &pb.RegisterRMRequestProto{
+		AbstractIdentifyRequest: &pb.AbstractIdentifyRequestProto{
+			AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_REG_RM},
+		},
+		ResourceIds: "issue-1203",
+	}
+	client := GetGrpcRemotingClient()
+	_, err := client.SendSyncRequestOnChannel(req, explicit)
+	require.NoError(t, err)
+
+	select {
+	case got := <-explicitReceived:
+		decoded, err := Decode(got)
+		require.NoError(t, err)
+		request, ok := decoded.Body.(*pb.RegisterRMRequestProto)
+		require.True(t, ok)
+		assert.Equal(t, "issue-1203", request.GetResourceIds())
+	case <-time.After(3 * time.Second):
+		t.Fatal("explicit channel did not receive the request")
+	}
+	select {
+	case got := <-selectedReceived:
+		t.Fatalf("load-balanced channel unexpectedly received request ID %d", got.Id)
+	case <-time.After(200 * time.Millisecond):
 	}
 }
 
