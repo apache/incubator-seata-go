@@ -22,6 +22,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"io"
+	"strings"
 	"sync"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
@@ -115,9 +117,11 @@ type DBResource struct {
 	branchType branch.BranchType
 
 	// for xa
-	metaCache    datasource.TableMetaCache
-	shouldBeHeld bool
-	keeper       sync.Map // xaBranchID -> *XAConn
+	metaCache              datasource.TableMetaCache
+	keepInKeeper           bool
+	shouldBeHeld           bool
+	probeXADetachOnPrepare bool
+	keeper                 sync.Map // xaBranchID -> *XAConn
 }
 
 func (db *DBResource) GetResourceGroupId() string {
@@ -137,7 +141,11 @@ func (db *DBResource) init() {
 		log.Errorf("select db version: %v", err)
 	}
 	db.SetDbVersion(version)
-	db.checkDbVersion()
+	if db.branchType == branch.BranchTypeXA {
+		if err := db.checkDbVersion(ctx, conn); err != nil {
+			log.Errorf("check db version and XA capabilities: %v", err)
+		}
+	}
 }
 
 func (db *DBResource) GetResourceId() string {
@@ -237,9 +245,14 @@ func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid XAXid) (*XAConn
 	return xaConn, nil
 }
 
-func (db *DBResource) checkDbVersion() error {
+func (db *DBResource) checkDbVersion(ctx context.Context, conn driver.Conn) error {
 	switch db.dbType {
 	case types.DBTypeMySQL:
+		db.keepInKeeper = true
+		// Conservatively keep the owner unless both the version and the effective
+		// session variable prove that cross-connection phase two is supported.
+		db.shouldBeHeld = true
+
 		currentVersion, err := util.ConvertDbVersion(db.dbVersion)
 		if err != nil {
 			return fmt.Errorf("new connection xa proxy convert db version:%s err:%v", db.GetDbVersion(), err)
@@ -250,11 +263,74 @@ func (db *DBResource) checkDbVersion() error {
 			return fmt.Errorf("new connection xa proxy convert db version 8.0.29 err:%v", err)
 		}
 
-		if currentVersion < shouldKeptVersion {
-			db.shouldBeHeld = true
+		if currentVersion >= shouldKeptVersion {
+			db.probeXADetachOnPrepare = true
+			detachOnPrepare, err := selectMySQLXADetachOnPrepare(ctx, conn)
+			if err != nil {
+				return err
+			}
+			db.shouldBeHeld = !detachOnPrepare
 		}
 	case types.DBTypeMARIADB:
+		db.keepInKeeper = true
 		db.shouldBeHeld = true
 	}
 	return nil
+}
+
+func selectMySQLXADetachOnPrepare(ctx context.Context, conn driver.Conn) (bool, error) {
+	var (
+		rows driver.Rows
+		err  error
+	)
+
+	queryerCtx, ok := conn.(driver.QueryerContext)
+	var queryer driver.Queryer
+	if !ok {
+		queryer, ok = conn.(driver.Queryer)
+	}
+	if !ok {
+		return false, fmt.Errorf("target conn should implement driver.QueryerContext or driver.Queryer")
+	}
+
+	rows, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, "SELECT @@session.xa_detach_on_prepare", nil)
+	if err != nil {
+		return false, fmt.Errorf("query xa_detach_on_prepare: %w", err)
+	}
+	defer rows.Close()
+
+	dest := make([]driver.Value, 1)
+	if err = rows.Next(dest); err != nil {
+		if err == io.EOF {
+			return false, fmt.Errorf("query xa_detach_on_prepare returned no rows")
+		}
+		return false, fmt.Errorf("read xa_detach_on_prepare: %w", err)
+	}
+
+	var value string
+	switch typed := dest[0].(type) {
+	case int64:
+		if typed == 0 {
+			return false, nil
+		}
+		if typed == 1 {
+			return true, nil
+		}
+		return false, fmt.Errorf("unexpected xa_detach_on_prepare value: %d", typed)
+	case []byte:
+		value = string(typed)
+	case string:
+		value = typed
+	default:
+		return false, fmt.Errorf("unexpected xa_detach_on_prepare type: %T", dest[0])
+	}
+
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "on", "true":
+		return true, nil
+	case "0", "off", "false":
+		return false, nil
+	default:
+		return false, fmt.Errorf("unexpected xa_detach_on_prepare value: %q", value)
+	}
 }
