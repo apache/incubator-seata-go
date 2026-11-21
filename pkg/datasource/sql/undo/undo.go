@@ -68,7 +68,7 @@ type UndoLogManager interface {
 	Init()
 	// DeleteUndoLog
 	DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error
-	// BatchDeleteUndoLog
+	// BatchDeleteUndoLog deletes the (xid, branchID) pair at each matching index.
 	BatchDeleteUndoLog(xid []string, branchID []int64, conn *sql.Conn) error
 	//FlushUndoLog
 	FlushUndoLog(tranCtx *types.TransactionContext, conn driver.Conn) error
