@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
 	getty "github.com/apache/dubbo-getty"
@@ -124,13 +125,13 @@ func Test_syncCallback(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if test.wantErr {
+				shortenRequestTimeout(t, 20*time.Millisecond)
 				response, err := GetGettyRemotingClient().syncCallback(test.reqMsg, test.respMsg)
 				assert.EqualError(t, err, fmt.Sprintf("wait response timeout, request: %#v", test.reqMsg))
 				assert.Empty(t, response)
 			} else {
-				go func() {
-					test.respMsg.Done <- struct{}{}
-				}()
+				shortenRequestTimeout(t, 5*time.Second)
+				test.respMsg.Complete(nil)
 				response, err := GetGettyRemotingClient().syncCallback(test.reqMsg, test.respMsg)
 				assert.Empty(t, err)
 				assert.Empty(t, response)

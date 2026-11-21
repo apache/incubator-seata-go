@@ -65,6 +65,36 @@ func TestRandomLoadBalance_Empty(t *testing.T) {
 	}
 }
 
+func TestRandomLoadBalance_SingleSession(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	sessions := &sync.Map{}
+	session := mock.NewMockTestSession(ctrl)
+	session.EXPECT().IsClosed().Return(false).AnyTimes()
+	sessions.Store(session, "session-1")
+
+	if result := RandomLoadBalance(sessions, "some_xid"); result != session {
+		t.Fatalf("RandomLoadBalance() = %v, want the only available session %v", result, session)
+	}
+}
+
+func TestRandomLoadBalance_SingleOpenSession(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	sessions := &sync.Map{}
+	open := mock.NewMockTestSession(ctrl)
+	open.EXPECT().IsClosed().Return(false).AnyTimes()
+	closed := mock.NewMockTestSession(ctrl)
+	closed.EXPECT().IsClosed().Return(true).AnyTimes()
+	sessions.Store(open, "open")
+	sessions.Store(closed, "closed")
+
+	if result := RandomLoadBalance(sessions, "some_xid"); result != open {
+		t.Fatalf("RandomLoadBalance() = %v, want the only open session %v", result, open)
+	}
+	if _, exists := sessions.Load(closed); exists {
+		t.Fatal("closed session was not removed")
+	}
+}
+
 func TestRandomLoadBalance_All_Opening(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
