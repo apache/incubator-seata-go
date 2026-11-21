@@ -155,7 +155,7 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, er
 		totalLength += len(bodyBytes)
 	}
 
-	buf := bytes.NewByteBuffer([]byte{})
+	buf := bytes.NewByteBuffer(make([]byte, 0, totalLength))
 	buf.WriteByte(message.MagicCodeBytes[0])
 	buf.WriteByte(message.MagicCodeBytes[1])
 	buf.WriteByte(message.VERSION)
