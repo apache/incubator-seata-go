@@ -69,3 +69,22 @@ func TestUndoLogManager_ImplementsInterface(t *testing.T) {
 	manager := NewUndoLogManager()
 	assert.Implements(t, (*undo.UndoLogManager)(nil), manager)
 }
+
+func TestUndoLogManager_BatchDeleteUndoLog(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	defer db.Close()
+
+	mock.ExpectPrepare("DELETE FROM undo_log WHERE (xid, branch_id) IN (($1,$2),($3,$4))").
+		ExpectExec().
+		WithArgs("xid1", int64(123), "xid2", int64(456)).
+		WillReturnResult(sqlmock.NewResult(0, 2))
+
+	conn, err := db.Conn(context.Background())
+	require.NoError(t, err)
+	defer conn.Close()
+
+	manager := NewUndoLogManager()
+	require.NoError(t, manager.BatchDeleteUndoLog([]string{"xid1", "xid2"}, []int64{123, 456}, conn))
+	require.NoError(t, mock.ExpectationsWereMet())
+}

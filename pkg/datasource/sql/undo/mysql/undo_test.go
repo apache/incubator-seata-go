@@ -80,11 +80,9 @@ func TestUndoLogManager_BatchDeleteUndoLog(t *testing.T) {
 
 	manager := NewUndoLogManager()
 
-	// Mock the batch DELETE query that Base.BatchDeleteUndoLog would execute
-	// Parameters: branchIDStr (comma-separated), xidStr (comma-separated)
-	mock.ExpectPrepare("DELETE FROM (.+) WHERE").
+	mock.ExpectPrepare(`^DELETE FROM undo_log WHERE \(xid, branch_id\) IN \(\(\?,\?\),\(\?,\?\)\)$`).
 		ExpectExec().
-		WithArgs("123,456", "xid1,xid2").
+		WithArgs("xid1", int64(123), "xid2", int64(456)).
 		WillReturnResult(sqlmock.NewResult(0, 2))
 
 	conn, err := db.Conn(context.Background())
