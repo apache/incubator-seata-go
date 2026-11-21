@@ -56,6 +56,7 @@
 
 ### optimize：
 
+  - preallocate Getty write buffers using the encoded frame size to reduce allocations
   - [[#125](https://github.com/apache/incubator-seata-go/pull/125)] optimize named for the resource manager api and tcc resource
 
 ### test:

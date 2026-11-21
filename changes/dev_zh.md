@@ -51,6 +51,7 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 
 ### optimize：
 
+- 按编码后的帧长预分配 Getty 写入缓冲区，减少内存分配
 - [[#125](https://github.com/apache/incubator-seata-go/pull/125)] 优化resourceManagerApi和tccResource功能
 
 ### test:
