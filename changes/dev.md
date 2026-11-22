@@ -25,7 +25,7 @@
 
 ### breaking changes：
 
-  - The minimum Go version is raised from 1.20 to 1.26.10. For Go 1.27.x, use 1.27.3 or newer. Rebuild and redeploy applications with a supported toolchain.
+  - The minimum Go version is raised from 1.20 to 1.26.11. For Go 1.27.x, use 1.27.4 or newer. Rebuild and redeploy applications with a supported toolchain.
 
 ### feature：
 
@@ -36,7 +36,7 @@
 
 ### bugfix：
 
-  - [[#1154](https://github.com/apache/incubator-seata-go/issues/1154)] upgrade Go dependencies and toolchains for security fixes including CVE-2026-111943 and GO-2026-6865 (compress v1.20.3, x/net v0.62.0)
+  - [[#1154](https://github.com/apache/incubator-seata-go/issues/1154)] upgrade Go dependencies and toolchains for security fixes including CVE-2026-111943, GO-2026-6859, and GO-2026-6865 (compress v1.20.3, x/net v0.62.0)
   - route transactions to their IPv6 coordinator when the transaction ID and connection use different IPv6 address formats
   - [[#1197](https://github.com/apache/incubator-seata-go/pull/1197)] prevent XA rollback errors from panicking after branch cleanup, discard connections after failed rollback, and reset rollback state when a pooled connection starts a new branch
   - [[#128](https://github.com/apache/incubator-seata-go/issues/128)] re-register cached RM resources after remoting sessions reconnect

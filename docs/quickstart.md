@@ -19,9 +19,9 @@
 
 ## Prerequisites
 
-- Go >= 1.26.10. For Go 1.27.x, use 1.27.3 or newer.
+- Go >= 1.26.11. For Go 1.27.x, use 1.27.4 or newer.
 
-  **Breaking change:** The minimum Go version is raised from 1.20 to 1.26.10. Rebuild and redeploy applications with a supported toolchain.
+  **Breaking change:** The minimum Go version is raised from 1.20 to 1.26.11. Rebuild and redeploy applications with a supported toolchain.
 - Java >= 8
 - MySQL >= 8.0
 
