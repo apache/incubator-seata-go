@@ -27,11 +27,17 @@ type Lz4 struct {
 }
 
 const (
-	// lz4DecompressMaxBufferSize caps one decoded block so a hostile payload cannot
-	// trick us into multi-MiB (or worse) allocations before the integrity check.
-	// 64 MiB comfortably exceeds any realistic undo row while keeping the ceiling
-	// tight enough to bound worst-case memory in a corrupted-input path.
-	lz4DecompressMaxBufferSize = 0x04000000
+	// lz4DecompressExpansionLimit is the largest decoded size an LZ4 block of
+	// the given compressed length can structurally produce: every token claims
+	// at most 255 bytes per extension byte (the format's own expansion limit),
+	// so a structurally valid block never decodes to more than 255*len(in).
+	// The extra 64 KiB covers the fixed header/literal slack of the first
+	// sequence. A claim beyond it can only come from a bug in lz4DecodedSize
+	// itself, which is what this check guards.
+	lz4DecompressExpansionLimit = 255
+	// lz4DecompressSizeSlack covers the non-extension part of the token
+	// stream relative to the pure 255x expansion bound.
+	lz4DecompressSizeSlack = 0x10000
 )
 
 func (l *Lz4) Compress(data []byte) ([]byte, error) {
@@ -69,6 +75,21 @@ func (l *Lz4) Decompress(in []byte) ([]byte, error) {
 	}
 
 	return out[:n], nil
+}
+
+// lz4DecompressCeiling bounds the decoded size a block of the given
+// compressed length can structurally claim (255 bytes of output per input
+// byte, the format's own expansion limit, plus slack). The previous revision
+// capped this at a fixed 64 MiB, which rejected the round trip of any
+// compressible block larger than 64 MiB -- undo_log.rollback_info is a
+// longblob with no such constraint, so AT rollback failed for large rows
+// (reported by XiaoFeiASK). Because lz4DecodedSize validates the whole token
+// stream (offsets, overflow, lengths) before anything is allocated, a claim
+// within the limit is always backed by real input bytes; blocks claiming
+// beyond it fail here without allocating, which bounds a hostile payload to
+// the same ~255x expansion the raw format allows.
+func lz4DecompressCeiling(in []byte) int {
+	return lz4DecompressExpansionLimit*len(in) + lz4DecompressSizeSlack
 }
 
 // lz4DecodedSize returns the number of bytes that an LZ4 block decodes to by
@@ -116,8 +137,8 @@ func lz4DecodedSize(in []byte) (int, error) {
 			// The trailing literal run counts towards the decoded size too, so
 			// the ceiling has to be enforced before this early return as well;
 			// otherwise the real allocation bound is the ceiling plus len(in).
-			if size > lz4DecompressMaxBufferSize {
-				return 0, fmt.Errorf("lz4: decoded size exceeds %d bytes", lz4DecompressMaxBufferSize)
+			if size > lz4DecompressCeiling(in) {
+				return 0, fmt.Errorf("lz4: decoded size exceeds %d bytes", lz4DecompressCeiling(in))
 			}
 			return size, nil
 		}
@@ -144,7 +165,7 @@ func lz4DecodedSize(in []byte) (int, error) {
 				si++
 				match += int(b)
 				// Same 32-bit overflow guard as the literals accumulation above.
-				if match < 0 || match > lz4DecompressMaxBufferSize {
+				if match < 0 || match > lz4DecompressCeiling(in) {
 					return 0, lz4.ErrInvalidSourceShortBuffer
 				}
 				if b != 0xFF {
@@ -154,8 +175,8 @@ func lz4DecodedSize(in []byte) (int, error) {
 		}
 		// The four bytes at the match offset are the minimum match length.
 		size += match + 4
-		if size > lz4DecompressMaxBufferSize {
-			return 0, fmt.Errorf("lz4: decoded size exceeds %d bytes", lz4DecompressMaxBufferSize)
+		if size > lz4DecompressCeiling(in) {
+			return 0, fmt.Errorf("lz4: decoded size exceeds %d bytes", lz4DecompressCeiling(in))
 		}
 	}
 
