@@ -96,4 +96,13 @@ func TestXidLoadBalance(t *testing.T) {
 		assert.Contains(t, test.returnAddrs, session.RemoteAddr())
 	}
 
+	t.Run("routes equivalent IPv6 addresses", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		coordinator := mock.NewMockTestSession(ctrl)
+		coordinator.EXPECT().RemoteAddr().Return("[2001:db8::1]:8000")
+		coordinator.EXPECT().IsClosed().Return(false)
+		var sessions sync.Map
+		sessions.Store(coordinator, 8000)
+		assert.Same(t, coordinator, XidLoadBalance(&sessions, "2001:0db8:0:0:0:0:0:1:8000:111"))
+	})
 }

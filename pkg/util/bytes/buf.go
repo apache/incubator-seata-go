@@ -84,7 +84,7 @@ func (b *ByteBuffer) ReadUint32() (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	if n < 2 {
+	if n < 4 {
 		return 0, io.ErrShortBuffer
 	}
 	return Byte2UInt32(data), nil
@@ -96,7 +96,7 @@ func (b *ByteBuffer) ReadUint64() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if n < 2 {
+	if n < 8 {
 		return 0, io.ErrShortBuffer
 	}
 	return Byte2UInt64(data), nil
