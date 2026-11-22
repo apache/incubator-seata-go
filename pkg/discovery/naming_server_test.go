@@ -50,6 +50,79 @@ func cloneTestConfig() *NamingServerConfig {
 	return &cfg
 }
 
+func TestGetInstanceRecreatesClosedClient(t *testing.T) {
+	resetInstance()
+	healthChecks := make(chan struct{}, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/naming/v1/health" {
+			http.NotFound(w, r)
+			return
+		}
+		select {
+		case healthChecks <- struct{}{}:
+		default:
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(server.Close)
+	t.Cleanup(resetInstance)
+	cfg := cloneTestConfig()
+	cfg.ServerAddr = server.URL
+	cfg.HeartbeatPeriod = 10
+
+	awaitHealthCheck := func() {
+		t.Helper()
+		select {
+		case <-healthChecks:
+		case <-time.After(3 * time.Second):
+			t.Fatal("client did not perform a background health check")
+		}
+	}
+
+	first := GetInstance(cfg)
+	if got := GetInstance(cfg); got != first {
+		t.Fatal("GetInstance did not reuse the active client")
+	}
+	awaitHealthCheck()
+	first.Close()
+	// Close waits for the health-check goroutine. Discard its buffered request so
+	// only a request from the replacement client can satisfy the next assertion.
+	select {
+	case <-healthChecks:
+	default:
+	}
+
+	second := GetInstance(cfg)
+	if second == first {
+		t.Fatal("GetInstance returned the closed client")
+	}
+	select {
+	case <-second.closeChan:
+		t.Fatal("replacement client is already closed")
+	default:
+	}
+	awaitHealthCheck()
+}
+
+func TestNamingServerRegistryServicesOwnClients(t *testing.T) {
+	cfg := cloneTestConfig()
+	cfg.HeartbeatPeriod = 60000
+	first := newNamingServerRegistryService(nil, cfg).(*NamingServerRegistryService)
+	second := newNamingServerRegistryService(nil, cfg).(*NamingServerRegistryService)
+	t.Cleanup(first.Close)
+	t.Cleanup(second.Close)
+
+	if first.client == second.client {
+		t.Fatal("registry services share a client")
+	}
+	first.Close()
+	select {
+	case <-second.client.closeChan:
+		t.Fatal("closing one registry service closed the other client's connection")
+	default:
+	}
+}
+
 // Test getNamingAddrs splits config.ServerAddr
 func TestGetNamingAddrs(t *testing.T) {
 	cfg := cloneTestConfig()
@@ -696,6 +769,12 @@ func TestInitRegistry_WithNamingServerConfig(t *testing.T) {
 	registryServiceInstance = nil
 	// Reset naming server singleton instance
 	resetInstance()
+	t.Cleanup(func() {
+		if registryServiceInstance != nil {
+			registryServiceInstance.Close()
+			registryServiceInstance = nil
+		}
+	})
 
 	// Create custom configuration
 	customConfig := &RegistryConfig{
