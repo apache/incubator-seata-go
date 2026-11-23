@@ -775,3 +775,61 @@ func TestGetParamMarkerOrder_NonMarkerNode(t *testing.T) {
 	assert.False(t, ok)
 	assert.Equal(t, 0, order)
 }
+
+func TestParamMarkerExpr_DriverCompatibility(t *testing.T) {
+	assert.NotNil(t, ast.NewParamMarkerExpr)
+
+	offsetVal := 42
+	node := ast.NewParamMarkerExpr(offsetVal)
+	assert.NotNil(t, node)
+
+	marker, ok := node.(ast.ParamMarkerExpr)
+	assert.True(t, ok)
+
+	extractedOffset := getParamMarkerOffset(node)
+	assert.Equal(t, offsetVal, extractedOffset)
+
+	orderVal := 7
+	marker.SetOrder(orderVal)
+
+	extractedOrder, hasOrder := GetParamMarkerOrder(node)
+	assert.True(t, hasOrder)
+	assert.Equal(t, orderVal, extractedOrder)
+
+	sql := "SELECT id, name FROM users WHERE age > ? AND status = ?"
+	ctx, err := DoParser(sql)
+	assert.NoError(t, err)
+	assert.NotNil(t, ctx)
+	assert.NotNil(t, ctx.SelectStmt)
+
+	var parsedOrders []int
+	var parsedOffsets []int
+	visitor := &testParamMarkerCollector{
+		onMarker: func(m ast.ParamMarkerExpr) {
+			o, ok := GetParamMarkerOrder(m)
+			assert.True(t, ok)
+			parsedOrders = append(parsedOrders, o)
+			parsedOffsets = append(parsedOffsets, getParamMarkerOffset(m))
+		},
+	}
+	ctx.SelectStmt.Accept(visitor)
+
+	assert.Equal(t, []int{0, 1}, parsedOrders)
+	assert.Equal(t, 2, len(parsedOffsets))
+	assert.True(t, parsedOffsets[0] < parsedOffsets[1])
+}
+
+type testParamMarkerCollector struct {
+	onMarker func(ast.ParamMarkerExpr)
+}
+
+func (c *testParamMarkerCollector) Enter(n ast.Node) (ast.Node, bool) {
+	if m, ok := n.(ast.ParamMarkerExpr); ok {
+		c.onMarker(m)
+	}
+	return n, false
+}
+
+func (c *testParamMarkerCollector) Leave(n ast.Node) (ast.Node, bool) {
+	return n, true
+}
