@@ -27,9 +27,9 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/tm"
 
-	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/format"
-	"github.com/arana-db/parser/model"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/format"
+	"github.com/pingcap/tidb/pkg/parser/model"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -305,7 +305,7 @@ func selectForUpdateMeta(ctx context.Context, execCtx *types.ExecContext) (types
 func (u *SelectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta types.TableMeta) (string, error) {
 	pks := meta.GetPrimaryKeyOnlyName()
 	if len(pks) == 0 {
-		return "", fmt.Errorf("%s needs to contain the primary key.", meta.TableName)
+		return "", fmt.Errorf("%s needs to contain the primary key", meta.TableName)
 	}
 
 	fields := []*ast.SelectField{}
@@ -365,7 +365,7 @@ func (s SelectForUpdateExecutor) buildLockKey(rows driver.Rows, meta types.Table
 			if pkSplitIndex > 0 {
 				lockKeys.WriteString("_")
 			}
-			lockKeys.WriteString(fmt.Sprintf("%v", value))
+			fmt.Fprintf(&lockKeys, "%v", value)
 			pkSplitIndex++
 		}
 		filedSequence++

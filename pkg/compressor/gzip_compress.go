@@ -20,7 +20,7 @@ package compressor
 import (
 	"bytes"
 	"compress/gzip"
-	"io/ioutil"
+	"io"
 )
 
 type Gzip struct {
@@ -58,7 +58,7 @@ func (g *Gzip) Decompress(in []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return ioutil.ReadAll(reader)
+	return io.ReadAll(reader)
 }
 
 func (g *Gzip) GetCompressorType() CompressorType {

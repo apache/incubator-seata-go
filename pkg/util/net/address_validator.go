@@ -34,7 +34,7 @@ func SplitIPPortStr(addr string) (string, int, error) {
 	}
 
 	if addr[0] == '[' {
-		reg := regexp.MustCompile("[\\[\\]]")
+		reg := regexp.MustCompile(`[\[\]]`)
 		addr = reg.ReplaceAllString(addr, "")
 	}
 
@@ -47,7 +47,7 @@ func SplitIPPortStr(addr string) (string, int, error) {
 	port := addr[i+1:]
 
 	if strings.Contains(host, "%") {
-		reg := regexp.MustCompile("\\%[0-9]+")
+		reg := regexp.MustCompile(`%[0-9]+`)
 		host = reg.ReplaceAllString(host, "")
 	}
 

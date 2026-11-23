@@ -861,6 +861,7 @@ func (s *StateLogStore) branchReport(ctx context.Context, stateInstance statelan
 			perr,
 		)
 	}
+	//nolint:staticcheck
 	if mgr := rm.GetRmCacheInstance().GetResourceManager(branch.BranchTypeSAGA); mgr != nil {
 		log.Infof("BranchReport via SagaResourceManager, XID=%s, branchId=%d, status=%s", globalTransaction.Xid, branchId, branchStatus)
 		if err = mgr.BranchReport(ctx, rm.BranchReportParam{
@@ -964,7 +965,7 @@ func (s *StateLogStore) deserializeStateMachineParamsAndException(stateMachineIn
 	}
 
 	serializedError := stateMachineInstance.SerializedError().([]byte)
-	if serializedError != nil && len(serializedError) > 0 {
+	if len(serializedError) > 0 {
 		deserializedError, err := s.errorSerializer.Deserialize(serializedError)
 		if err != nil {
 			return err
