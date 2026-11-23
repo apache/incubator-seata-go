@@ -63,8 +63,8 @@ jobs:
           cache: true
 
       - name: "golang ci lint"
-        uses: golangci/golangci-lint-action@v3.1.0
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: v1.51.0
+          version: v2.4.0
           args: --timeout=10m
-          skip-pkg-cache: true
+          skip-cache: true
