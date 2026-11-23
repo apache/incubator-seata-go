@@ -51,12 +51,7 @@ jobs:
   lint:
     name: lint
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        golang:
-          - 1.25.10
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
+    timeout-minutes: 15
     steps:
       - name: "checkout ${{ github.ref }}"
         uses: actions/checkout@v4
@@ -65,14 +60,11 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: 1.25.10
-
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - name: "checkout ${{ github.ref }}"
-        uses: actions/checkout@v4
+          cache: true
 
       - name: "golang ci lint"
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v3.1.0
         with:
-          version: v2.4.0
+          version: v1.51.0
           args: --timeout=10m
-          skip-cache: true
+          skip-pkg-cache: true
