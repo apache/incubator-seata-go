@@ -783,14 +783,11 @@ func TestParamMarkerExpr_DriverCompatibility(t *testing.T) {
 	node := ast.NewParamMarkerExpr(offsetVal)
 	assert.NotNil(t, node)
 
-	marker, ok := node.(ast.ParamMarkerExpr)
-	assert.True(t, ok)
-
 	extractedOffset := getParamMarkerOffset(node)
 	assert.Equal(t, offsetVal, extractedOffset)
 
 	orderVal := 7
-	marker.SetOrder(orderVal)
+	node.SetOrder(orderVal)
 
 	extractedOrder, hasOrder := GetParamMarkerOrder(node)
 	assert.True(t, hasOrder)
