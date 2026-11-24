@@ -155,6 +155,20 @@ func TestRegistryPanicsOnMeterTypeConflict(t *testing.T) {
 	)
 }
 
+func TestRegistryPanicsWhenGaugeRequestedAsCounter(t *testing.T) {
+	registry := NewRegistry()
+	id := metrics.Id{Name: "conflict.gauge"}
+
+	registry.Gauge(id)
+
+	require.PanicsWithValue(t,
+		`metrics: id "conflict.gauge" is already registered as gauge, cannot be used as counter`,
+		func() {
+			registry.Counter(id)
+		},
+	)
+}
+
 func TestRegistryMeasure(t *testing.T) {
 	registry := NewRegistry()
 

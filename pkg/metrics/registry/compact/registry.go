@@ -52,7 +52,7 @@ func (r *Registry) Counter(id metrics.Id) metrics.Counter {
 	m := r.resolve(id, func(id metrics.Id) meter {
 		return newCounter(id)
 	})
-	counter, ok := m.(metrics.Counter)
+	counter, ok := m.(*counter)
 	if !ok {
 		panicMeterType(id, m, metrics.MeterValueCounter)
 	}
@@ -64,7 +64,7 @@ func (r *Registry) Gauge(id metrics.Id) metrics.Gauge {
 	m := r.resolve(id, func(id metrics.Id) meter {
 		return newGauge(id)
 	})
-	gauge, ok := m.(metrics.Gauge)
+	gauge, ok := m.(*gauge)
 	if !ok {
 		panicMeterType(id, m, metrics.MeterValueGauge)
 	}
@@ -76,7 +76,7 @@ func (r *Registry) Timer(id metrics.Id) metrics.Timer {
 	m := r.resolve(id, func(id metrics.Id) meter {
 		return newTimer(id)
 	})
-	timer, ok := m.(metrics.Timer)
+	timer, ok := m.(*timer)
 	if !ok {
 		panicMeterType(id, m, metrics.MeterValueTimer)
 	}
