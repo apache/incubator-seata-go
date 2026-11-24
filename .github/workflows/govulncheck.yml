@@ -101,7 +101,7 @@ jobs:
 
   release-assets:
     name: Attach security artifacts to release
-    if: ${{ always() && github.event_name == 'release' && needs.security.result != 'cancelled' }}
+    if: ${{ always() && github.event_name == 'release' && needs.security.result == 'success' }}
     needs: security
     runs-on: ubuntu-latest
     permissions:
