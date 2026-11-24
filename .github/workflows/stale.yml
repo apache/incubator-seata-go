@@ -28,7 +28,7 @@ jobs:
   stale:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/stale@v4
+      - uses: actions/stale@v11.0.0
         with:
           #never automatically stale issues
           days-before-issue-stale: -1

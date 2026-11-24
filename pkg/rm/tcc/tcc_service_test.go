@@ -248,6 +248,12 @@ func TestRegisteBranch(t *testing.T) {
 	assert.Equal(t, testBranchID, bizContext.BranchId)
 }
 
+func TestRegisteBranchWithoutGlobalTransaction(t *testing.T) {
+	err := testTccServiceProxy.registeBranch(context.Background(), nil)
+
+	assert.EqualError(t, err, "BranchRegister error, transaction should be opened")
+}
+
 func TestNewTCCServiceProxy(t *testing.T) {
 	type args struct {
 		service interface{}
