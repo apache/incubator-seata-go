@@ -183,6 +183,55 @@ func TestLookupIncludesServiceGroupInMissingClusterError(t *testing.T) {
 	require.EqualError(t, err, "cluster doesn't exist for serviceGroup=missing_tx_group")
 }
 
+func TestRaftLookupRetriesBootstrapAfterFailure(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		endpoint string
+	}{
+		{name: "login", endpoint: "/api/v1/auth/login"},
+		{name: "metadata", endpoint: "/metadata/v1/cluster"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var requests int32
+			leader := newTestMetadataNode(t, "127.0.0.1:7001", "default", metadata.LEADER)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == tc.endpoint && atomic.AddInt32(&requests, 1) == 1 {
+					w.WriteHeader(http.StatusServiceUnavailable)
+					return
+				}
+				switch r.URL.Path {
+				case "/api/v1/auth/login":
+					_, _ = w.Write([]byte(`{"code":"200","data":"mock-jwt-token"}`))
+				case "/metadata/v1/cluster":
+					_ = json.NewEncoder(w).Encode(metadata.MetadataResponse{Term: 1, Nodes: []*metadata.Node{leader}})
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+			service := NewRaftRegistryService(newTestServiceConfig(), newTestRegistryConfig(server.Listener.Addr().String()))
+			defer service.Close()
+
+			_, err := service.Lookup("default_tx_group")
+			require.Error(t, err)
+
+			want := []*ServiceInstance{{Addr: "127.0.0.1", Port: 7001}}
+			var lookups sync.WaitGroup
+			for i := 0; i < 2; i++ {
+				lookups.Add(1)
+				go func() {
+					defer lookups.Done()
+					instances, err := service.Lookup("default_tx_group")
+					assert.NoError(t, err)
+					assert.Equal(t, want, instances)
+				}()
+			}
+			lookups.Wait()
+			require.EqualValues(t, 2, atomic.LoadInt32(&requests))
+		})
+	}
+}
+
 func TestMultiClusterWatch(t *testing.T) {
 	clusterRequests := make(map[string]int)
 	var requestMu sync.Mutex
