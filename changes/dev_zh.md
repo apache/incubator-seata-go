@@ -30,6 +30,7 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 - 支持全局事务中 autoCommit 语句的 XA 分支注册：每条 autoCommit 语句都作为一个完整的 XA 分支单独注册并 prepare（注意：N 条 autoCommit 语句会在 TC 侧产生 N 个分支）；带参数的语句（默认 go-sql-driver DSN 会返回 `driver.ErrSkip`）通过分支内 Prepare+Exec 回退执行，从而保证仍在分支内完成
 - 支持基于 pgx 驱动的 PostgreSQL XA
 - [[#1130](https://github.com/apache/incubator-seata-go/issues/1130)] 支持 AT 模式下 MySQL 多值 INSERT 的复合主键与混合主键场景
+- [[#1231](https://github.com/apache/incubator-seata-go/pull/1231)] 新增仅依赖标准库的 metrics 抽象、并发安全的 compact registry 和 no-op registry，为 seata-go 提供可选的指标采集能力
 
 ### bugfix：
 
