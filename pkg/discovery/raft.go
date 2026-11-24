@@ -57,6 +57,7 @@ type RaftRegistryService struct {
 	currentTransactionServiceGroup string
 	currentTransactionClusterName  string
 	mu                             sync.RWMutex
+	bootstrapMu                    sync.Mutex
 	stateMu                        sync.RWMutex
 	stopCh                         chan struct{}
 	refreshOnce                    sync.Once
@@ -111,43 +112,53 @@ func (r *RaftRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
 	r.currentTransactionClusterName = clusterName
 	r.mu.Unlock()
 
-	if !r.metadata.ContainsGroup(clusterName) {
-		if _, ok := r.loadInitAddresses(clusterName); !ok && r.cfg.ServerAddr != "" {
-			addrs := strings.Split(r.cfg.ServerAddr, ",")
-			list := make([]*ServiceInstance, 0, len(addrs))
-			for _, addr := range addrs {
-				h, p, err := net.SplitHostPort(strings.TrimSpace(addr))
-				if err != nil {
-					log.Infof("invalid init server addr: %s, err: %v", addr, err)
-					continue
-				}
-				port, err := strconv.Atoi(p)
-				if err != nil {
-					log.Errorf("invalid port: %s", p)
-					continue
-				}
-				list = append(list, &ServiceInstance{Addr: h, Port: port})
-			}
-			if len(list) == 0 {
-				return nil, fmt.Errorf("invalid service group/key: %s", key)
-			}
-			r.initAddresses.Store(clusterName, list)
-
-			if err := r.refreshToken(); err != nil {
-				return nil, err
-			}
-
-			err := r.acquireClusterMetaData(clusterName, "")
-			if err != nil {
-				return nil, err
-			}
-			r.startQueryMetadata()
+	if !r.metadata.ContainsGroup(clusterName) && r.cfg.ServerAddr != "" {
+		if err := r.bootstrapCluster(key, clusterName); err != nil {
+			return nil, err
 		}
 	}
 	r.stateMu.RLock()
 	instances, err := r.snapshotForClusterLocked(clusterName)
 	r.stateMu.RUnlock()
 	return instances, err
+}
+
+func (r *RaftRegistryService) bootstrapCluster(key, clusterName string) error {
+	r.bootstrapMu.Lock()
+	defer r.bootstrapMu.Unlock()
+	if r.metadata.ContainsGroup(clusterName) {
+		return nil
+	}
+
+	if _, ok := r.loadInitAddresses(clusterName); !ok {
+		addrs := strings.Split(r.cfg.ServerAddr, ",")
+		list := make([]*ServiceInstance, 0, len(addrs))
+		for _, addr := range addrs {
+			host, portText, err := net.SplitHostPort(strings.TrimSpace(addr))
+			if err != nil {
+				log.Infof("invalid init server addr: %s, err: %v", addr, err)
+				continue
+			}
+			port, err := strconv.Atoi(portText)
+			if err != nil {
+				log.Errorf("invalid port: %s", portText)
+				continue
+			}
+			list = append(list, &ServiceInstance{Addr: host, Port: port})
+		}
+		if len(list) == 0 {
+			return fmt.Errorf("invalid service group/key: %s", key)
+		}
+		r.initAddresses.Store(clusterName, list)
+	}
+
+	// Seed addresses are cached before the request. Keep retrying until cluster
+	// metadata is available, even when an earlier attempt cached the addresses.
+	if err := r.acquireClusterMetaData(clusterName, ""); err != nil {
+		return err
+	}
+	r.startQueryMetadata()
+	return nil
 }
 
 func (r *RaftRegistryService) snapshotForClusterLocked(clusterName string) ([]*ServiceInstance, error) {
@@ -390,8 +401,8 @@ func (r *RaftRegistryService) watch() (bool, error) {
 				return false, err
 			}
 		}
-		if r.jwtToken != "" {
-			header["Authorization"] = r.jwtToken
+		if token := r.getJWTToken(); token != "" {
+			header["Authorization"] = token
 		}
 
 		form := url.Values{}
@@ -436,8 +447,8 @@ func (r *RaftRegistryService) acquireClusterMetaData(clusterName, group string) 
 			return err
 		}
 	}
-	if r.jwtToken != "" {
-		headers["Authorization"] = r.jwtToken
+	if token := r.getJWTToken(); token != "" {
+		headers["Authorization"] = token
 	}
 	u := fmt.Sprintf("http://%s/metadata/v1/cluster", tcAddress)
 	req, err := http.NewRequest("GET", u, nil)
@@ -505,6 +516,12 @@ func (r *RaftRegistryService) publishClusterSnapshotLocked(clusterName string) {
 }
 
 /* -------------------- Token management -------------------- */
+
+func (r *RaftRegistryService) getJWTToken() string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.jwtToken
+}
 
 func (r *RaftRegistryService) isTokenExpired() bool {
 	r.mu.RLock()
@@ -632,6 +649,8 @@ func (r *RaftRegistryService) queryHttpAddress(clusterName, group string) (strin
 	if len(addressList) == 0 {
 		return "", fmt.Errorf("no available address for cluster=%s group=%s", clusterName, group)
 	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	return addressList[r.random.Intn(len(addressList))], nil
 }
 
