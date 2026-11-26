@@ -145,6 +145,9 @@ func (aw *AsyncWorker) BranchCommit(ctx context.Context, req rm.BranchResource) 
 
 	select {
 	case aw.commitQueue <- phaseCtx:
+		if phaseCtx.ResourceID == "" {
+			log.Warnf("AT undo log cleanup has no resource ID: xid=%s, branchID=%d", phaseCtx.Xid, phaseCtx.BranchID)
+		}
 	case <-ctx.Done():
 		aw.releaseCleanupSlots(map[string]int{req.ResourceId: 1})
 		return branch.BranchStatusPhasetwoCommitFailedRetryable, ctx.Err()
@@ -265,10 +268,11 @@ func (aw *AsyncWorker) cleanUndoLogs(ctx context.Context, phaseCtxs []phaseTwoCo
 
 	result := cleanupResult{cleanedByResource: make(map[string]int, len(groups))}
 	for resourceID, group := range groups {
-		var failed []phaseTwoContext
-		if resourceID != "" {
-			failed = aw.cleanResourceUndoLogs(ctx, resourceID, group)
+		if resourceID == "" {
+			result.failed = append(result.failed, group...)
+			continue
 		}
+		failed := aw.cleanResourceUndoLogs(ctx, resourceID, group)
 		if cleaned := len(group) - len(failed); cleaned > 0 {
 			result.cleanedByResource[resourceID] = cleaned
 		}

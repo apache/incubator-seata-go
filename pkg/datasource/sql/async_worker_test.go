@@ -185,6 +185,16 @@ func TestAsyncWorker_UnavailableResourceDoesNotBlockHealthyResource(t *testing.T
 	}, time.Second, 5*time.Millisecond, "successful cleanup must release its slot and preserve failed branches")
 }
 
+func TestAsyncWorker_EmptyResourceIDIsRetried(t *testing.T) {
+	worker := &AsyncWorker{}
+	branchWithoutResource := phaseTwoContext{Xid: "xid-without-resource", BranchID: 1}
+
+	result := worker.cleanUndoLogs(context.Background(), []phaseTwoContext{branchWithoutResource})
+
+	require.NotContains(t, result.cleanedByResource, "")
+	require.Equal(t, []phaseTwoContext{branchWithoutResource}, result.failed)
+}
+
 func TestAsyncWorker_BatchUndoLogCleanup(t *testing.T) {
 	manager := &ATSourceManager{}
 	primary := addCleanupTestResource(t, manager, "primary", sqlmock.QueryMatcherRegexp)
