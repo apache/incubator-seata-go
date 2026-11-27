@@ -19,7 +19,6 @@ package sql
 
 import (
 	"context"
-	"database/sql/driver"
 	"errors"
 	"flag"
 	"fmt"
@@ -168,73 +167,24 @@ func (xaManager *XAResourceManager) finishBranch(ctx context.Context, xaID XAXid
 	return connectionProxyXA, nil
 }
 
-func phaseTwoErrorClassifier(connection *XAConn) (xa.XAPhaseTwoErrorClassifier, bool) {
-	classifier, ok := connection.xaErrorClassifier.(xa.XAPhaseTwoErrorClassifier)
-	return classifier, ok
-}
-
 // xaCommitPhaseTwo serializes the terminal-cache check with the phase-two
 // operation on the physical XA connection. The fast cache check in
 // BranchCommit avoids opening a connection for the common retry case, but it
 // cannot by itself prevent two callbacks that race before the first one has
-// published the terminal status from both reaching the resource. Keep this
-// second check under keeperMu so the callback that acquires ownership second
-// observes the status published by the first callback and remains idempotent.
+// published the terminal status from both reaching the resource. runPhaseTwo
+// rechecks the status after any in-flight phase-two operation on the same
+// connection has finished, so the second callback observes the status
+// published by the first one and remains idempotent. The XA COMMIT itself runs
+// outside keeperMu so keeper maintenance never waits on database I/O.
 func (c *XAConn) xaCommitPhaseTwo(ctx context.Context, xaXid XAXid, beforeRelease func()) (branch.BranchStatus, error) {
-	c.keeperMu.Lock()
-	defer c.keeperMu.Unlock()
-
-	if status, err := branchStatus(xaXid.String()); err == nil {
-		switch status {
-		case branch.BranchStatusPhasetwoCommitted, branch.BranchStatusPhasetwoRollbacked:
-			// A terminal result may have been published by an earlier callback
-			// while the keeper entry was still present. Drop any stale ownership
-			// before returning the idempotent result.
-			c.completePhaseTwoLocked()
-			return status, nil
-		}
-	}
-
-	if c.physicalClosed {
-		return branch.BranchStatusUnknown, driver.ErrBadConn
-	}
-	err := c.xaResource.Commit(ctx, xaXid.String(), false)
-	if err == nil {
-		if beforeRelease != nil {
-			beforeRelease()
-		}
-		c.completePhaseTwoLocked()
-	}
-	return branch.BranchStatusUnknown, err
+	return c.runPhaseTwo(ctx, xaXid, true, xa.PhaseTwoCommit, beforeRelease)
 }
 
-// xaRollbackPhaseTwo is the rollback counterpart of xaCommitPhaseTwo. The
-// cache check and the resource operation share keeperMu for the same reason:
-// a duplicate callback must not issue a second XA ROLLBACK after the first
+// xaRollbackPhaseTwo is the rollback counterpart of xaCommitPhaseTwo: a
+// duplicate callback must not issue a second XA ROLLBACK after the first
 // callback has published a terminal outcome.
 func (c *XAConn) xaRollbackPhaseTwo(ctx context.Context, xaXid XAXid, beforeRelease func()) (branch.BranchStatus, error) {
-	c.keeperMu.Lock()
-	defer c.keeperMu.Unlock()
-
-	if status, err := branchStatus(xaXid.String()); err == nil {
-		switch status {
-		case branch.BranchStatusPhasetwoCommitted, branch.BranchStatusPhasetwoRollbacked:
-			c.completePhaseTwoLocked()
-			return status, nil
-		}
-	}
-
-	if c.physicalClosed {
-		return branch.BranchStatusUnknown, driver.ErrBadConn
-	}
-	err := c.xaResource.Rollback(ctx, xaXid.String())
-	if err == nil {
-		if beforeRelease != nil {
-			beforeRelease()
-		}
-		c.completePhaseTwoLocked()
-	}
-	return branch.BranchStatusUnknown, err
+	return c.runPhaseTwo(ctx, xaXid, true, xa.PhaseTwoRollback, beforeRelease)
 }
 
 func (xaManager *XAResourceManager) BranchCommit(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
@@ -255,46 +205,29 @@ func (xaManager *XAResourceManager) BranchCommit(ctx context.Context, branchReso
 	if err != nil {
 		return branch.BranchStatusPhasetwoCommitFailedRetryable, err
 	}
-	wasKept := connectionProxyXA.isKept()
-	if !wasKept {
+	if connectionProxyXA.phaseTwoOnly {
 		defer connectionProxyXA.Close()
 	}
 
 	phaseTwoStatus, err := connectionProxyXA.xaCommitPhaseTwo(ctx, xaID, func() {
 		setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoCommitted)
 	})
-	if err == nil && phaseTwoStatus != branch.BranchStatusUnknown {
-		switch phaseTwoStatus {
-		case branch.BranchStatusPhasetwoCommitted:
-			return branch.BranchStatusPhasetwoCommitted, nil
-		case branch.BranchStatusPhasetwoRollbacked:
-			return branch.BranchStatusPhasetwoCommitFailedUnretryable, fmt.Errorf(
+	switch phaseTwoStatus {
+	case branch.BranchStatusPhasetwoCommitted:
+		return branch.BranchStatusPhasetwoCommitted, nil
+	case branch.BranchStatusPhasetwoRollbacked:
+		if err == nil {
+			err = fmt.Errorf(
 				"XA branch %s was already rolled back",
 				xaID.String(),
 			)
 		}
+		return branch.BranchStatusPhasetwoCommitFailedUnretryable, err
+	case branch.BranchStatusPhasetwoCommitFailedUnretryable:
+		return phaseTwoStatus, err
 	}
 	if err != nil {
 		log.Errorf("commit xa, resourceId: %s, err %v", branchResource.ResourceId, err)
-		if classifier, ok := phaseTwoErrorClassifier(connectionProxyXA); ok {
-			switch classifier.ClassifyPhaseTwoError(xa.PhaseTwoCommit, err) {
-			case xa.PhaseTwoAlreadyCommitted:
-				connectionProxyXA.completePhaseTwoWith(func() {
-					setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoCommitted)
-				})
-				return branch.BranchStatusPhasetwoCommitted, nil
-			case xa.PhaseTwoAlreadyRolledBack:
-				connectionProxyXA.completePhaseTwoWith(func() {
-					setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoRollbacked)
-				})
-				return branch.BranchStatusPhasetwoCommitFailedUnretryable, err
-			case xa.PhaseTwoUnretryable:
-				if closeErr := connectionProxyXA.CloseForce(); closeErr != nil {
-					log.Errorf("close XA connection after unretryable commit failure: %v", closeErr)
-				}
-				return branch.BranchStatusPhasetwoCommitFailedUnretryable, err
-			}
-		}
 		return branch.BranchStatusPhasetwoCommitFailedRetryable, err
 	}
 
@@ -320,46 +253,29 @@ func (xaManager *XAResourceManager) BranchRollback(ctx context.Context, branchRe
 	if err != nil {
 		return branch.BranchStatusPhasetwoRollbackFailedRetryable, err
 	}
-	wasKept := connectionProxyXA.isKept()
-	if !wasKept {
+	if connectionProxyXA.phaseTwoOnly {
 		defer connectionProxyXA.Close()
 	}
 
 	phaseTwoStatus, err := connectionProxyXA.xaRollbackPhaseTwo(ctx, xaID, func() {
 		setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoRollbacked)
 	})
-	if err == nil && phaseTwoStatus != branch.BranchStatusUnknown {
-		switch phaseTwoStatus {
-		case branch.BranchStatusPhasetwoRollbacked:
-			return branch.BranchStatusPhasetwoRollbacked, nil
-		case branch.BranchStatusPhasetwoCommitted:
-			return branch.BranchStatusPhasetwoRollbackFailedUnretryable, fmt.Errorf(
+	switch phaseTwoStatus {
+	case branch.BranchStatusPhasetwoRollbacked:
+		return branch.BranchStatusPhasetwoRollbacked, nil
+	case branch.BranchStatusPhasetwoCommitted:
+		if err == nil {
+			err = fmt.Errorf(
 				"XA branch %s was already committed",
 				xaID.String(),
 			)
 		}
+		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
+	case branch.BranchStatusPhasetwoRollbackFailedUnretryable:
+		return phaseTwoStatus, err
 	}
 	if err != nil {
 		log.Errorf("rollback xa, resourceId: %s, err %v", branchResource.ResourceId, err)
-		if classifier, ok := phaseTwoErrorClassifier(connectionProxyXA); ok {
-			switch classifier.ClassifyPhaseTwoError(xa.PhaseTwoRollback, err) {
-			case xa.PhaseTwoAlreadyRolledBack:
-				connectionProxyXA.completePhaseTwoWith(func() {
-					setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoRollbacked)
-				})
-				return branch.BranchStatusPhasetwoRollbacked, nil
-			case xa.PhaseTwoAlreadyCommitted:
-				connectionProxyXA.completePhaseTwoWith(func() {
-					setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoCommitted)
-				})
-				return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
-			case xa.PhaseTwoUnretryable:
-				if closeErr := connectionProxyXA.CloseForce(); closeErr != nil {
-					log.Errorf("close XA connection after unretryable rollback failure: %v", closeErr)
-				}
-				return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
-			}
-		}
 		return branch.BranchStatusPhasetwoRollbackFailedRetryable, err
 	}
 

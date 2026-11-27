@@ -43,23 +43,30 @@ var errXABranchLifecycleManaged = errors.New("xa branch lifecycle is managed by 
 type XAConn struct {
 	*Conn
 
-	tx                  driver.Tx
-	xaResource          xa.XAResource
-	xaErrorClassifier   xa.XAErrorClassifier
-	xaBranchXid         *XABranchXid
-	xaActive            bool
-	rollBacked          bool
-	branchRegisterTime  time.Time
-	prepareTime         time.Time
-	keeperMu            sync.Mutex
-	keepInKeeper        bool
-	shouldBeHeld        bool
+	tx                   driver.Tx
+	xaResource           xa.XAResource
+	xaErrorClassifier    xa.XAErrorClassifier
+	xaBranchXid          *XABranchXid
+	xaActive             bool
+	rollBacked           bool
+	branchRegisterTime   time.Time
+	prepareTime          time.Time
+	keeperMu             sync.Mutex
+	keepInKeeper         bool
+	shouldBeHeld         bool
 	detachOnPrepareKnown bool
 	detachOnPrepare      bool
-	isConnKept          bool
-	preparedForPhaseTwo bool
-	poolDiscarded       bool
-	physicalClosed      bool
+	isConnKept           bool
+	preparedForPhaseTwo  bool
+	poolDiscarded        bool
+	physicalClosed       bool
+	phaseTwoOnly         bool
+	// phaseTwoDone is non-nil while a phase-two XA COMMIT/ROLLBACK is running
+	// on the physical connection and is closed when that operation finishes.
+	phaseTwoDone chan struct{}
+	// closeAfterPhaseTwo records a close request that arrived while a
+	// phase-two operation was in flight; the operation owner performs it.
+	closeAfterPhaseTwo bool
 }
 
 // xaBranchTx is a sentinel driver.Tx used to satisfy database/sql wiring while
@@ -190,7 +197,9 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 		return nil, fmt.Errorf("failed to register xa branch %s, err:%w", c.txCtx.XID, err)
 	}
 
+	c.keeperMu.Lock()
 	c.xaBranchXid = XaIdBuild(c.txCtx.XID, c.txCtx.BranchID)
+	c.keeperMu.Unlock()
 	c.configureConnectionHold(ctx)
 	c.keepIfNecessary()
 
@@ -618,6 +627,10 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 		if err := c.XaRollback(ctx, c.xaBranchXid); err != nil {
 			// The branch may still be open; do not return this connection to the pool.
 			c.invalidate()
+			// The branch never reached XA PREPARE, so phase two does not need this
+			// physical connection: closing the session makes the database roll the
+			// branch back. Drop keeper ownership so database/sql can close it.
+			c.releaseIfNecessary()
 			if rollbackErr != nil {
 				rollbackErr = errors.Join(rollbackErr, err)
 			} else {
@@ -696,7 +709,7 @@ func (c *XAConn) ShouldBeHeld() bool {
 func (c *XAConn) phaseTwoTimeoutSnapshot() (prepared bool, holdUntilPhaseTwo bool, preparedAt time.Time) {
 	c.keeperMu.Lock()
 	defer c.keeperMu.Unlock()
-	return c.preparedForPhaseTwo, c.shouldBeHeld, c.prepareTime
+	return c.preparedForPhaseTwo, c.ShouldBeHeld(), c.prepareTime
 }
 
 // checkTimeout only reports expiration. Commit routes the error through
@@ -717,14 +730,30 @@ func (c *XAConn) Close() error {
 		c.poolDiscarded = true
 		return nil
 	}
+	if c.phaseTwoDone != nil {
+		c.closeAfterPhaseTwo = true
+		return nil
+	}
 	c.cleanXABranchContextLocked()
 	return c.closePhysicalLocked()
 }
 
+// CloseForce closes the physical connection and drops keeper ownership. It
+// never waits for database I/O: when a phase-two operation is in flight the
+// close is deferred to the goroutine that owns that operation, so the single
+// timeout checker loop cannot be stalled by a slow XA COMMIT/ROLLBACK.
 func (c *XAConn) CloseForce() error {
 	c.keeperMu.Lock()
 	defer c.keeperMu.Unlock()
 
+	if c.phaseTwoDone != nil {
+		c.closeAfterPhaseTwo = true
+		return nil
+	}
+	return c.closeForceLocked()
+}
+
+func (c *XAConn) closeForceLocked() error {
 	err := c.closePhysicalLocked()
 	c.rollBacked = false
 	c.releaseIfNecessaryLocked()
@@ -737,19 +766,7 @@ func (c *XAConn) XaCommit(ctx context.Context, xaXid XAXid) error {
 }
 
 func (c *XAConn) xaCommit(ctx context.Context, xaXid XAXid, beforeRelease func()) error {
-	c.keeperMu.Lock()
-	defer c.keeperMu.Unlock()
-
-	if c.physicalClosed {
-		return driver.ErrBadConn
-	}
-	err := c.xaResource.Commit(ctx, xaXid.String(), false)
-	if err == nil {
-		if beforeRelease != nil {
-			beforeRelease()
-		}
-		c.completePhaseTwoLocked()
-	}
+	_, err := c.runPhaseTwo(ctx, xaXid, false, xa.PhaseTwoCommit, beforeRelease)
 	return err
 }
 
@@ -762,33 +779,109 @@ func (c *XAConn) XaRollback(ctx context.Context, xaXid XAXid) error {
 }
 
 func (c *XAConn) xaRollback(ctx context.Context, xaXid XAXid, beforeRelease func()) error {
-	c.keeperMu.Lock()
-	defer c.keeperMu.Unlock()
-
-	if c.physicalClosed {
-		return driver.ErrBadConn
-	}
-	err := c.xaResource.Rollback(ctx, xaXid.String())
-	if err == nil {
-		if beforeRelease != nil {
-			beforeRelease()
-		}
-		c.completePhaseTwoLocked()
-	}
+	_, err := c.runPhaseTwo(ctx, xaXid, false, xa.PhaseTwoRollback, beforeRelease)
 	return err
 }
 
-func (c *XAConn) completePhaseTwo() {
-	c.completePhaseTwoWith(nil)
-}
-
-func (c *XAConn) completePhaseTwoWith(beforeRelease func()) {
+// runPhaseTwo executes one XA COMMIT/ROLLBACK on the physical connection.
+//
+// keeperMu only guards state transitions; the database call runs outside the
+// lock so keeper maintenance (CloseForce, Close, ResetSession, isKept) never
+// waits on network I/O. Phase-two operations on the same connection are still
+// serialized through phaseTwoDone: a later caller waits for the in-flight one
+// (or for its own ctx), and when checkTerminal is set it then observes the
+// terminal status published by the earlier caller instead of reissuing the
+// operation against the resource.
+func (c *XAConn) runPhaseTwo(
+	ctx context.Context,
+	xaXid XAXid,
+	checkTerminal bool,
+	operation xa.PhaseTwoOperation,
+	beforeRelease func(),
+) (branch.BranchStatus, error) {
 	c.keeperMu.Lock()
-	defer c.keeperMu.Unlock()
-	if beforeRelease != nil {
-		beforeRelease()
+	for c.phaseTwoDone != nil {
+		inFlight := c.phaseTwoDone
+		c.keeperMu.Unlock()
+		select {
+		case <-inFlight:
+		case <-ctx.Done():
+			return branch.BranchStatusUnknown, ctx.Err()
+		}
+		c.keeperMu.Lock()
 	}
-	c.completePhaseTwoLocked()
+
+	if checkTerminal {
+		if status, err := branchStatus(xaXid.String()); err == nil {
+			switch status {
+			case branch.BranchStatusPhasetwoCommitted, branch.BranchStatusPhasetwoRollbacked:
+				c.keeperMu.Unlock()
+				return status, nil
+			}
+		}
+		if c.xaBranchXid == nil || c.xaBranchXid.String() != xaXid.String() || (!c.phaseTwoOnly && !c.isConnKept) {
+			c.keeperMu.Unlock()
+			return branch.BranchStatusUnknown, driver.ErrBadConn
+		}
+	}
+
+	if c.physicalClosed {
+		c.keeperMu.Unlock()
+		return branch.BranchStatusUnknown, driver.ErrBadConn
+	}
+	resource := c.xaResource
+	classifier, _ := c.xaErrorClassifier.(xa.XAPhaseTwoErrorClassifier)
+	done := make(chan struct{})
+	c.phaseTwoDone = done
+	c.keeperMu.Unlock()
+
+	succeeded := false
+	status := branch.BranchStatus(branch.BranchStatusUnknown)
+	classification := xa.PhaseTwoRetryable
+	defer func() {
+		c.keeperMu.Lock()
+		defer c.keeperMu.Unlock()
+		if succeeded {
+			if beforeRelease != nil {
+				beforeRelease()
+			}
+			c.completePhaseTwoLocked()
+		} else if status == branch.BranchStatusPhasetwoCommitted || status == branch.BranchStatusPhasetwoRollbacked {
+			setBranchStatus(xaXid.String(), status)
+			c.completePhaseTwoLocked()
+		}
+		if c.closeAfterPhaseTwo || classification == xa.PhaseTwoUnretryable {
+			c.closeAfterPhaseTwo = false
+			if err := c.closeForceLocked(); err != nil {
+				log.Errorf("close XA connection deferred during phase two: %v", err)
+			}
+		}
+		c.phaseTwoDone = nil
+		close(done)
+	}()
+
+	var err error
+	if operation == xa.PhaseTwoCommit {
+		err = resource.Commit(ctx, xaXid.String(), false)
+	} else {
+		err = resource.Rollback(ctx, xaXid.String())
+	}
+	succeeded = err == nil
+	if err != nil && checkTerminal && classifier != nil {
+		classification = classifier.ClassifyPhaseTwoError(operation, err)
+		switch classification {
+		case xa.PhaseTwoAlreadyCommitted:
+			status = branch.BranchStatusPhasetwoCommitted
+		case xa.PhaseTwoAlreadyRolledBack:
+			status = branch.BranchStatusPhasetwoRollbacked
+		case xa.PhaseTwoUnretryable:
+			status = branch.BranchStatusPhasetwoCommitFailedUnretryable
+			if operation == xa.PhaseTwoRollback {
+				status = branch.BranchStatusPhasetwoRollbackFailedUnretryable
+			}
+		}
+	}
+	return status, err
 }
 
 func (c *XAConn) completePhaseTwoLocked() {

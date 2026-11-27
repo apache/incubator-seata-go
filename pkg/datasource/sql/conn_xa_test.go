@@ -385,7 +385,9 @@ func TestXAConn_ConfigureConnectionHoldCachesSessionSettingPerConnection(t *test
 		gomock.Any(),
 		"SELECT @@session.xa_detach_on_prepare",
 		gomock.Any(),
-	).Return(&mysqlMockRows{data: [][]interface{}{{int64(1)}}}, nil).Times(2)
+	).DoAndReturn(func(context.Context, string, []driver.NamedValue) (driver.Rows, error) {
+		return &mysqlMockRows{data: [][]interface{}{{int64(1)}}}, nil
+	}).Times(2)
 	mockConn.EXPECT().ResetSession(gomock.Any()).Return(nil).Times(1)
 
 	resource := &DBResource{
@@ -651,13 +653,20 @@ func TestXAConn_PhaseTwoAndTimeoutCloseHaveSinglePhysicalOwner(t *testing.T) {
 
 	select {
 	case err := <-closeDone:
-		t.Fatalf("timeout close raced ahead of phase two: %v", err)
-	case <-time.After(20 * time.Millisecond):
+		// The timeout checker must not wait on the in-flight XA COMMIT.
+		assert.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("CloseForce blocked on an in-flight phase-two operation")
 	}
+	// The close is deferred to the phase-two owner: the physical connection
+	// must stay open and owned by the keeper until XA COMMIT returns.
+	assert.Equal(t, int32(0), atomic.LoadInt32(&underlying.closeCalls))
+	_, heldDuringPhaseTwo := resource.Lookup(xaID.String())
+	assert.True(t, heldDuringPhaseTwo)
+	assert.True(t, xaConn.isKept(), "keeper state must stay readable during phase two")
 
 	close(xaResource.proceed)
 	assert.NoError(t, <-commitDone)
-	assert.NoError(t, <-closeDone)
 	assert.Equal(t, int32(1), atomic.LoadInt32(&underlying.closeCalls))
 	_, held := resource.Lookup(xaID.String())
 	assert.False(t, held)
@@ -782,7 +791,7 @@ func TestXAConn_KeepIfNecessaryRetainsUnknownDatabaseOwner(t *testing.T) {
 	resource := &DBResource{dbType: types.DBTypeUnknown}
 	xaID := XaIdBuild("xid", 1)
 	conn := &XAConn{
-		Conn: &Conn{res: resource},
+		Conn:        &Conn{res: resource},
 		xaBranchXid: xaID,
 	}
 
@@ -794,6 +803,8 @@ func TestXAConn_KeepIfNecessaryRetainsUnknownDatabaseOwner(t *testing.T) {
 	assert.True(t, ok, "unknown XA resources must enter the keeper")
 	assert.Same(t, conn, kept)
 	assert.True(t, conn.isKept())
+}
+
 type closeTrackingDriverConn struct {
 	driver.Conn
 	closes *int32

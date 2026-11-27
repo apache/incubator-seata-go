@@ -241,6 +241,7 @@ func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid XAXid) (*XAConn
 		xaBranchXid:       XaIdBuild(xaXid.GetGlobalXid(), xaXid.GetBranchId()),
 		xaResource:        xaResource,
 		xaErrorClassifier: xa.CreateErrorClassifier(db.dbType),
+		phaseTwoOnly:      true,
 	}
 	return xaConn, nil
 }
