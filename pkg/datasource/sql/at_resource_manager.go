@@ -103,8 +103,7 @@ func (a *ATSourceManager) BranchRollback(ctx context.Context, branchResource rm.
 
 // BranchCommit commit the branch transaction
 func (a *ATSourceManager) BranchCommit(ctx context.Context, resource rm.BranchResource) (branch.BranchStatus, error) {
-	a.worker.BranchCommit(ctx, resource)
-	return branch.BranchStatusPhasetwoCommitted, nil
+	return a.worker.BranchCommit(ctx, resource)
 }
 
 func (a *ATSourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {

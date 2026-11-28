@@ -22,7 +22,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -286,96 +285,56 @@ func TestBaseUndoLogManager_getBatchDeleteUndoLogSql(t *testing.T) {
 		name        string
 		xid         []string
 		branchID    []int64
-		expectError bool
+		expectError string
 		expected    string
 	}{
 		{
 			name:        "empty xid",
 			xid:         []string{},
 			branchID:    []int64{1, 2},
-			expectError: true,
+			expectError: "xid or branch_id can't nil",
 		},
 		{
 			name:        "empty branchID",
 			xid:         []string{"xid1", "xid2"},
 			branchID:    []int64{},
-			expectError: true,
+			expectError: "xid or branch_id can't nil",
 		},
 		{
 			name:        "both empty",
 			xid:         []string{},
 			branchID:    []int64{},
-			expectError: true,
+			expectError: "xid or branch_id can't nil",
+		},
+		{
+			name:        "mismatched counts",
+			xid:         []string{"xid1"},
+			branchID:    []int64{1, 2},
+			expectError: "xid and branch_id counts must match",
 		},
 		{
 			name:     "valid inputs",
 			xid:      []string{"xid1", "xid2"},
 			branchID: []int64{1, 2},
-			expected: " DELETE FROM test_undo_log WHERE branch_id IN  (?,?)  AND xid IN  (?,?) ",
+			expected: "DELETE FROM test_undo_log WHERE (xid, branch_id) IN ((?,?),(?,?))",
 		},
 		{
 			name:     "single values",
 			xid:      []string{"xid1"},
 			branchID: []int64{1},
-			expected: " DELETE FROM test_undo_log WHERE branch_id IN  (?)  AND xid IN  (?) ",
+			expected: "DELETE FROM test_undo_log WHERE (xid, branch_id) IN ((?,?))",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := manager.getBatchDeleteUndoLogSql(tt.xid, tt.branchID)
-			if tt.expectError {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), "xid or branch_id can't nil")
+			if tt.expectError != "" {
+				assert.EqualError(t, err, tt.expectError)
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expected, result)
 			}
-		})
-	}
-}
-
-func TestBaseUndoLogManager_appendInParam(t *testing.T) {
-	manager := NewBaseUndoLogManager()
-
-	tests := []struct {
-		name     string
-		size     int
-		expected string
-	}{
-		{
-			name:     "zero size",
-			size:     0,
-			expected: "",
-		},
-		{
-			name:     "negative size",
-			size:     -1,
-			expected: "",
-		},
-		{
-			name:     "single parameter",
-			size:     1,
-			expected: " (?) ",
-		},
-		{
-			name:     "multiple parameters",
-			size:     3,
-			expected: " (?,?,?) ",
-		},
-		{
-			name:     "five parameters",
-			size:     5,
-			expected: " (?,?,?,?,?) ",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var builder strings.Builder
-			manager.appendInParam(tt.size, &builder)
-			result := builder.String()
-			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -598,31 +557,6 @@ func TestBaseUndoLogManager_DeleteUndoLog_ExecError(t *testing.T) {
 	})
 }
 
-func TestBaseUndoLogManager_getBatchDeleteUndoLogSql_MultipleItems(t *testing.T) {
-	manager := NewBaseUndoLogManager()
-
-	t.Run("multiple xid and branchID", func(t *testing.T) {
-		xid := []string{"xid1", "xid2", "xid3"}
-		branchID := []int64{1, 2, 3}
-
-		result, err := manager.getBatchDeleteUndoLogSql(xid, branchID)
-		assert.NoError(t, err)
-		assert.Contains(t, result, "DELETE FROM")
-		assert.Contains(t, result, "branch_id IN")
-		assert.Contains(t, result, "xid IN")
-		assert.Contains(t, result, "?")
-	})
-
-	t.Run("single item", func(t *testing.T) {
-		xid := []string{"xid1"}
-		branchID := []int64{1}
-
-		result, err := manager.getBatchDeleteUndoLogSql(xid, branchID)
-		assert.NoError(t, err)
-		assert.Contains(t, result, "DELETE FROM")
-	})
-}
-
 func TestInt64Slice2Str_EdgeCases(t *testing.T) {
 	t.Run("large numbers", func(t *testing.T) {
 		values := []int64{9223372036854775807, -9223372036854775808}
@@ -661,19 +595,6 @@ func TestBaseUndoLogManager_encodeDecodeUndoLogCtx_Complex(t *testing.T) {
 		encoded := manager.encodeUndoLogCtx(input)
 		decoded := manager.decodeUndoLogCtx(encoded)
 		assert.Equal(t, input, decoded)
-	})
-}
-
-func TestBaseUndoLogManager_appendInParam_LargeSize(t *testing.T) {
-	manager := NewBaseUndoLogManager()
-
-	t.Run("size 10", func(t *testing.T) {
-		var sb strings.Builder
-		manager.appendInParam(10, &sb)
-		result := sb.String()
-		assert.Contains(t, result, "?")
-		// Should have 10 question marks
-		assert.Equal(t, 10, strings.Count(result, "?"))
 	})
 }
 

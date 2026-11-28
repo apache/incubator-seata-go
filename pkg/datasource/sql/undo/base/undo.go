@@ -237,9 +237,8 @@ func (m *BaseUndoLogManager) DeleteUndoLog(ctx context.Context, xid string, bran
 	return nil
 }
 
-// BatchDeleteUndoLog exec delete undo log operate
+// BatchDeleteUndoLog deletes exactly the supplied (xid, branchID) pairs.
 func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, conn *sql.Conn) error {
-	// build delete undo log sql
 	batchDeleteSql, err := m.getBatchDeleteUndoLogSql(xid, branchID)
 	if err != nil {
 		log.Errorf("get undo sql log fail, err: %v", err)
@@ -247,8 +246,6 @@ func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, 
 	}
 
 	ctx := context.Background()
-
-	// prepare deal sql
 	stmt, err := conn.PrepareContext(ctx, batchDeleteSql)
 	if err != nil {
 		log.Errorf("prepare sql fail, err: %v", err)
@@ -256,14 +253,12 @@ func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, 
 	}
 	defer stmt.Close()
 
-	branchIDStr, err := Int64Slice2Str(branchID, ",")
-	if err != nil {
-		log.Errorf("slice to string transfer fail, err: %v", err)
-		return err
+	args := make([]any, 0, len(xid)*2)
+	for i := range xid {
+		args = append(args, xid[i], branchID[i])
 	}
 
-	// exec sql stmt
-	if _, err = stmt.ExecContext(ctx, branchIDStr, strings.Join(xid, ",")); err != nil {
+	if _, err = stmt.ExecContext(ctx, args...); err != nil {
 		log.Errorf("exec delete undo log fail, err: %v", err)
 		return err
 	}
@@ -580,33 +575,15 @@ func (m *BaseUndoLogManager) getBatchDeleteUndoLogSql(xid []string, branchID []i
 	if len(xid) == 0 || len(branchID) == 0 {
 		return "", fmt.Errorf("xid or branch_id can't nil")
 	}
-
-	var undoLogDeleteSql strings.Builder
-	undoLogDeleteSql.WriteString(" DELETE FROM ")
-	undoLogDeleteSql.WriteString(getUndoLogTableName())
-	undoLogDeleteSql.WriteString(" WHERE branch_id IN ")
-	m.appendInParam(len(branchID), &undoLogDeleteSql)
-	undoLogDeleteSql.WriteString(" AND xid IN ")
-	m.appendInParam(len(xid), &undoLogDeleteSql)
-
-	return util.RewritePlaceholders(undoLogDeleteSql.String(), m.dialect()), nil
-}
-
-// appendInParam build in param
-func (m *BaseUndoLogManager) appendInParam(size int, str *strings.Builder) {
-	if size <= 0 {
-		return
+	if len(xid) != len(branchID) {
+		return "", fmt.Errorf("xid and branch_id counts must match")
 	}
 
-	str.WriteString(" (")
-	for i := 0; i < size; i++ {
-		str.WriteString("?")
-		if i < size-1 {
-			str.WriteString(",")
-		}
-	}
-
-	str.WriteString(") ")
+	// Separate IN lists would also match cross-pairs that were never submitted.
+	// MySQL uses the (xid, branch_id) unique index for row-constructor IN only from 5.7.3; older versions scan the table.
+	pairs := strings.Repeat("(?,?),", len(xid)-1) + "(?,?)"
+	query := fmt.Sprintf("DELETE FROM %s WHERE (xid, branch_id) IN (%s)", getUndoLogTableName(), pairs)
+	return util.RewritePlaceholders(query, m.dialect()), nil
 }
 
 // Int64Slice2Str

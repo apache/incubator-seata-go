@@ -64,6 +64,17 @@ jobs:
         ports:
           - 3306:3306
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: seata_go_test
+          POSTGRES_USER: seata_go
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - "127.0.0.1::5432"
+        options: >-
+          --health-cmd="pg_isready -h 127.0.0.1 -U seata_go -d seata_go_test"
+          --health-interval=5s --health-timeout=5s --health-retries=5
     steps:
       - name: "checkout ${{ github.ref }}"
         uses: actions/checkout@v7
@@ -78,6 +89,7 @@ jobs:
       - name: "run unit tests"
         env:
           SEATA_GO_TEST_MYSQL_DSN: seata_go:seata_go@tcp(127.0.0.1:3306)/seata_go_test
+          SEATA_GO_TEST_POSTGRES_DSN: postgres://seata_go@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/seata_go_test?sslmode=disable
         run: |
           set -o pipefail
           go test -v ./... -race -coverprofile=coverage.out -covermode=atomic -timeout 10m 2>&1 | tee test-output.log

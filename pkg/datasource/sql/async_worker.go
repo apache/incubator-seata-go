@@ -19,7 +19,9 @@ package sql
 
 import (
 	"context"
+	"errors"
 	"flag"
+	"sync"
 	"time"
 
 	"seata.apache.org/seata-go/v2/pkg/rm"
@@ -40,6 +42,11 @@ type phaseTwoContext struct {
 	ResourceID string
 }
 
+type cleanupResult struct {
+	cleanedByResource map[string]int
+	failed            []phaseTwoContext
+}
+
 type AsyncWorkerConfig struct {
 	BufferLimit            int           `yaml:"buffer_limit" json:"buffer_limit"`
 	BufferCleanInterval    time.Duration `yaml:"buffer_clean_interval" json:"buffer_clean_interval"`
@@ -58,21 +65,45 @@ func (cfg *AsyncWorkerConfig) RegisterFlagsWithPrefix(prefix string, f *flag.Fla
 
 // AsyncWorker executor for branch transaction commit and undo log
 type AsyncWorker struct {
-	conf AsyncWorkerConfig
+	conf       AsyncWorkerConfig
+	batchLimit int
+	jobLimit   int
 
 	commitQueue  chan phaseTwoContext
 	resourceMgr  datasource.DataSourceManager
 	commitWorker *fanout.Fanout
 
+	pendingMu         sync.Mutex
+	pendingByResource map[string]int
+	// A branch holds a slot from admission through cleanup, including time in commitQueue.
+	// Successful cleanup or cancellation before enqueue releases the slot.
+	pendingBranches  int
+	pendingLimit     int
+	perResourceLimit int
+
 	branchCommitTotal          prometheus.Counter
 	doBranchCommitFailureTotal prometheus.Counter
 	receiveChanLength          prometheus.Gauge
 	rePutBackToQueue           prometheus.Counter
+	droppedNoResourceID        prometheus.Counter
+	capacityRejectedTotal      *prometheus.CounterVec
+	pendingBranchesGauge       prometheus.Gauge
+	pendingByResourceGauge     *prometheus.GaugeVec
+	retryBacklog               prometheus.Gauge
 }
 
 func NewAsyncWorker(ctx context.Context, prom prometheus.Registerer, conf AsyncWorkerConfig, sourceManager datasource.DataSourceManager) *AsyncWorker {
 	var asyncWorker AsyncWorker
 	asyncWorker.conf = conf
+	asyncWorker.batchLimit = conf.BufferLimit * 2 / 3
+	if asyncWorker.batchLimit < 1 {
+		asyncWorker.batchLimit = 1
+	}
+	asyncWorker.jobLimit = conf.CommitWorkerCount + conf.CommitWorkerBufferSize
+	asyncWorker.perResourceLimit = asyncWorker.batchLimit*(asyncWorker.jobLimit+1) + conf.ReceiveChanSize
+	// Reserve one batch for other resources even when one resource exhausts its capacity.
+	asyncWorker.pendingLimit = asyncWorker.perResourceLimit + asyncWorker.batchLimit
+	asyncWorker.pendingByResource = make(map[string]int)
 	asyncWorker.commitQueue = make(chan phaseTwoContext, asyncWorker.conf.ReceiveChanSize)
 	asyncWorker.resourceMgr = sourceManager
 	asyncWorker.commitWorker = fanout.New("asyncWorker",
@@ -96,6 +127,34 @@ func NewAsyncWorker(ctx context.Context, prom prometheus.Registerer, conf AsyncW
 		Name: "async_worker_commit_failure_retry_counter",
 		Help: "the counter of commit failure retry counter",
 	})
+	asyncWorker.droppedNoResourceID = promauto.With(prom).NewCounter(prometheus.CounterOpts{
+		Name: "async_worker_dropped_no_resource_id_total",
+		Help: "the count of undo log cleanups dropped because the branch has no resource ID",
+	})
+	asyncWorker.capacityRejectedTotal = promauto.With(prom).NewCounterVec(prometheus.CounterOpts{
+		Name: "async_worker_capacity_rejected_total",
+		Help: "the count of branch commits rejected because undo log cleanup capacity is exhausted",
+	}, []string{"scope"})
+	asyncWorker.pendingBranchesGauge = promauto.With(prom).NewGauge(prometheus.GaugeOpts{
+		Name: "async_worker_pending_branches",
+		Help: "the number of admitted branches whose undo log cleanup has not succeeded yet",
+	})
+	asyncWorker.pendingByResourceGauge = promauto.With(prom).NewGaugeVec(prometheus.GaugeOpts{
+		Name: "async_worker_pending_branches_by_resource",
+		Help: "the number of admitted branches per resource whose undo log cleanup has not succeeded yet",
+	}, []string{"resource"})
+	asyncWorker.retryBacklog = promauto.With(prom).NewGauge(prometheus.GaugeOpts{
+		Name: "async_worker_retry_backlog_branches",
+		Help: "the number of branches waiting for an undo log cleanup retry",
+	})
+	promauto.With(prom).NewGauge(prometheus.GaugeOpts{
+		Name: "async_worker_pending_branches_limit",
+		Help: "the admission limit of async_worker_pending_branches",
+	}).Set(float64(asyncWorker.pendingLimit))
+	promauto.With(prom).NewGauge(prometheus.GaugeOpts{
+		Name: "async_worker_pending_branches_per_resource_limit",
+		Help: "the admission limit of async_worker_pending_branches_by_resource",
+	}).Set(float64(asyncWorker.perResourceLimit))
 
 	go asyncWorker.run(ctx)
 
@@ -112,107 +171,203 @@ func (aw *AsyncWorker) BranchCommit(ctx context.Context, req rm.BranchResource) 
 
 	aw.branchCommitTotal.Add(1)
 
+	// Without a resource ID there is no data source to clean, and retrying cannot supply one.
+	if req.ResourceId == "" {
+		aw.droppedNoResourceID.Inc()
+		log.Errorf("drop AT undo log cleanup without resource ID: xid=%s, branchID=%d", req.Xid, req.BranchId)
+		return branch.BranchStatusPhasetwoCommitted, nil
+	}
+
+	if scope, ok := aw.reserveCleanupSlot(req.ResourceId); !ok {
+		aw.capacityRejectedTotal.WithLabelValues(scope).Inc()
+		return branch.BranchStatusPhasetwoCommitFailedRetryable, errors.New("async undo log cleanup capacity exhausted")
+	}
+
 	select {
 	case aw.commitQueue <- phaseCtx:
 	case <-ctx.Done():
+		aw.releaseCleanupSlots(map[string]int{req.ResourceId: 1})
+		return branch.BranchStatusPhasetwoCommitFailedRetryable, ctx.Err()
 	}
 
-	aw.receiveChanLength.Add(float64(len(aw.commitQueue)))
+	aw.receiveChanLength.Set(float64(len(aw.commitQueue)))
 
 	return branch.BranchStatusPhasetwoCommitted, nil
+}
+
+// reserveCleanupSlot returns the exhausted scope, "global" or "resource", when admission is rejected.
+func (aw *AsyncWorker) reserveCleanupSlot(resourceID string) (string, bool) {
+	aw.pendingMu.Lock()
+	defer aw.pendingMu.Unlock()
+	if aw.pendingBranches >= aw.pendingLimit {
+		return "global", false
+	}
+	if aw.pendingByResource[resourceID] >= aw.perResourceLimit {
+		return "resource", false
+	}
+	aw.pendingBranches++
+	aw.pendingByResource[resourceID]++
+	aw.pendingBranchesGauge.Set(float64(aw.pendingBranches))
+	aw.pendingByResourceGauge.WithLabelValues(resourceID).Set(float64(aw.pendingByResource[resourceID]))
+	return "", true
+}
+
+func (aw *AsyncWorker) releaseCleanupSlots(cleanedByResource map[string]int) {
+	aw.pendingMu.Lock()
+	defer aw.pendingMu.Unlock()
+	for resourceID, cleaned := range cleanedByResource {
+		aw.pendingBranches -= cleaned
+		aw.pendingByResource[resourceID] -= cleaned
+		if aw.pendingByResource[resourceID] == 0 {
+			delete(aw.pendingByResource, resourceID)
+			aw.pendingByResourceGauge.DeleteLabelValues(resourceID)
+		} else {
+			aw.pendingByResourceGauge.WithLabelValues(resourceID).Set(float64(aw.pendingByResource[resourceID]))
+		}
+	}
+	aw.pendingBranchesGauge.Set(float64(aw.pendingBranches))
 }
 
 func (aw *AsyncWorker) run(ctx context.Context) {
 	ticker := time.NewTicker(aw.conf.BufferCleanInterval)
 	defer ticker.Stop()
-	phaseCtxs := make([]phaseTwoContext, 0, aw.conf.BufferLimit)
+	defer aw.commitWorker.Close()
+
+	// Reserve a result slot per job so workers can always finish without a queue consumer.
+	results := make(chan cleanupResult, aw.jobLimit)
+	ready := make([]phaseTwoContext, 0, aw.batchLimit)
+	var retries, dueRetries []phaseTwoContext
+	// Count submitted jobs until this loop consumes their results.
+	outstandingJobs := 0
+	preferRetry := false
+	// Entries that were already in ready at the last tick and should be submitted without waiting for a full batch.
+	flushRemaining := 0
 	for {
+		aw.retryBacklog.Set(float64(len(retries) + len(dueRetries)))
+		newBatchReady := len(ready) > 0 && (len(ready) >= aw.batchLimit || flushRemaining > 0)
+		if outstandingJobs < aw.jobLimit && (newBatchReady || len(dueRetries) > 0) {
+			var batch []phaseTwoContext
+			// Alternate when both queues can run so retries and fresh work both make progress.
+			if len(dueRetries) > 0 && (!newBatchReady || preferRetry) {
+				batch, dueRetries = aw.takeBatch(dueRetries)
+				preferRetry = false
+			} else {
+				batch, ready = aw.takeBatch(ready)
+				flushRemaining -= len(batch)
+				if flushRemaining < 0 {
+					flushRemaining = 0
+				}
+				preferRetry = true
+			}
+			if err := aw.commitWorker.Do(ctx, func(ctx context.Context) {
+				result := cleanupResult{failed: batch}
+				defer func() { results <- result }()
+				result = aw.cleanUndoLogs(ctx, batch)
+			}); err != nil {
+				aw.doBranchCommitFailureTotal.Add(1)
+				log.Errorf("schedule undo log cleanup: %v", err)
+				return
+			}
+			outstandingJobs++
+			continue
+		}
+
+		// Always drain commitQueue: reserved slots already bound ready, and stopping intake would block
+		// BranchCommit for every resource while one slow resource occupies all cleanup jobs.
 		select {
 		case phaseCtx := <-aw.commitQueue:
-			phaseCtxs = append(phaseCtxs, phaseCtx)
-			if len(phaseCtxs) >= aw.conf.BufferLimit*2/3 {
-				aw.doBranchCommit(&phaseCtxs)
+			ready = append(ready, phaseCtx)
+		case result := <-results:
+			outstandingJobs--
+			if len(result.cleanedByResource) > 0 {
+				aw.releaseCleanupSlots(result.cleanedByResource)
+			}
+			if len(result.failed) > 0 {
+				aw.rePutBackToQueue.Add(float64(len(result.failed)))
+				retries = append(retries, result.failed...)
 			}
 		case <-ticker.C:
-			aw.doBranchCommit(&phaseCtxs)
+			if len(dueRetries) == 0 {
+				// Drain one retry cohort at a time so new failures do not retain its storage.
+				dueRetries, retries = retries, nil
+			}
+			flushRemaining = len(ready)
 		case <-ctx.Done():
-			ticker.Stop()
 			return
 		}
 	}
 }
 
-func (aw *AsyncWorker) doBranchCommit(phaseCtxs *[]phaseTwoContext) {
-	if len(*phaseCtxs) == 0 {
-		return
+// takeBatch removes up to batchLimit entries from the head of queue without copying the rest.
+func (aw *AsyncWorker) takeBatch(queue []phaseTwoContext) (batch, rest []phaseTwoContext) {
+	end := len(queue)
+	if end > aw.batchLimit {
+		end = aw.batchLimit
 	}
-
-	copyPhaseCtxs := make([]phaseTwoContext, len(*phaseCtxs))
-	copy(copyPhaseCtxs, *phaseCtxs)
-	*phaseCtxs = (*phaseCtxs)[:0]
-
-	doBranchCommit := func(ctx context.Context) {
-		groupCtxs := make(map[string][]phaseTwoContext, 16)
-		for i := range copyPhaseCtxs {
-			if copyPhaseCtxs[i].ResourceID == "" {
-				continue
-			}
-
-			if _, ok := groupCtxs[copyPhaseCtxs[i].ResourceID]; !ok {
-				groupCtxs[copyPhaseCtxs[i].ResourceID] = make([]phaseTwoContext, 0, 4)
-			}
-
-			ctxs := groupCtxs[copyPhaseCtxs[i].ResourceID]
-			ctxs = append(ctxs, copyPhaseCtxs[i])
-			groupCtxs[copyPhaseCtxs[i].ResourceID] = ctxs
-		}
-
-		for k := range groupCtxs {
-			aw.dealWithGroupedContexts(k, groupCtxs[k])
-		}
+	batch = append([]phaseTwoContext(nil), queue[:end]...)
+	for i := 0; i < end; i++ {
+		queue[i] = phaseTwoContext{}
 	}
-
-	if err := aw.commitWorker.Do(context.Background(), doBranchCommit); err != nil {
-		aw.doBranchCommitFailureTotal.Add(1)
-		log.Errorf("do branch commit err:%v,phaseCtxs=%v", err, phaseCtxs)
+	if end == len(queue) {
+		return batch, queue[:0]
 	}
+	return batch, queue[end:]
 }
 
-func (aw *AsyncWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseTwoContext) {
+func (aw *AsyncWorker) cleanUndoLogs(ctx context.Context, phaseCtxs []phaseTwoContext) cleanupResult {
+	groups := make(map[string][]phaseTwoContext)
+	for _, phaseCtx := range phaseCtxs {
+		groups[phaseCtx.ResourceID] = append(groups[phaseCtx.ResourceID], phaseCtx)
+	}
+
+	result := cleanupResult{cleanedByResource: make(map[string]int, len(groups))}
+	for resourceID, group := range groups {
+		failed := aw.cleanResourceUndoLogs(ctx, resourceID, group)
+		if cleaned := len(group) - len(failed); cleaned > 0 {
+			result.cleanedByResource[resourceID] = cleaned
+		}
+		result.failed = append(result.failed, failed...)
+	}
+	return result
+}
+
+func (aw *AsyncWorker) cleanResourceUndoLogs(ctx context.Context, resID string, phaseCtxs []phaseTwoContext) []phaseTwoContext {
+	// Bound the number of branch keys and SQL parameters in each cleanup statement.
+	const undoLogDeleteBatchSize = 100
+
 	val, ok := aw.resourceMgr.GetCachedResources().Load(resID)
 	if !ok {
-		for i := range phaseCtxs {
-			aw.rePutBackToQueue.Add(1)
-			aw.commitQueue <- phaseCtxs[i]
-		}
-		return
+		return phaseCtxs
 	}
 
 	res := val.(*DBResource)
-	conn, err := res.db.Conn(context.Background())
+	conn, err := res.db.Conn(ctx)
 	if err != nil {
-		for i := range phaseCtxs {
-			aw.commitQueue <- phaseCtxs[i]
-		}
-		return
+		return phaseCtxs
 	}
-
 	defer conn.Close()
 
 	undoMgr, err := undo.GetUndoLogManager(res.dbType)
 	if err != nil {
-		for i := range phaseCtxs {
-			aw.rePutBackToQueue.Add(1)
-			aw.commitQueue <- phaseCtxs[i]
-		}
-		return
+		return phaseCtxs
 	}
 
-	for i := range phaseCtxs {
-		phaseCtx := phaseCtxs[i]
-		if err := undoMgr.BatchDeleteUndoLog([]string{phaseCtx.Xid}, []int64{phaseCtx.BranchID}, conn); err != nil {
-			aw.rePutBackToQueue.Add(1)
-			aw.commitQueue <- phaseCtx
+	var failed []phaseTwoContext
+	for start := 0; start < len(phaseCtxs); start += undoLogDeleteBatchSize {
+		end := start + undoLogDeleteBatchSize
+		if end > len(phaseCtxs) {
+			end = len(phaseCtxs)
+		}
+		batch := phaseCtxs[start:end]
+		xids := make([]string, len(batch))
+		branchIDs := make([]int64, len(batch))
+		for i, phaseCtx := range batch {
+			xids[i] = phaseCtx.Xid
+			branchIDs[i] = phaseCtx.BranchID
+		}
+		if err := undoMgr.BatchDeleteUndoLog(xids, branchIDs, conn); err != nil {
+			failed = append(failed, batch...)
 		}
 	}
+	return failed
 }
