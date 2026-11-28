@@ -109,12 +109,12 @@ go get seata.apache.org/seata-go/v2@latest
 if you want to know how to use and integrate seata-go, please refer to [apache/seata-go-samples](https://github.com/apache/incubator-seata-go-samples)
 
 ## How to find the latest version
-Visit Seata-Go's GitHub Releases page
-
-Open:
-https://github.com/apache/incubator-seata-go/releases
-
-The latest tag / release is the latest stable version.
+Use the [official Seata Go download page](https://seata.apache.org/download/seata-go/)
+to find approved releases, signed source archives, checksums, and verification instructions.
+The [GitHub Releases page](https://github.com/apache/incubator-seata-go/releases)
+also contains release notes and may include release candidates.
+A newer tag or a pre-release entry does not identify the latest stable release.
+Release candidates (RCs) are for developer testing and voting, not approved Apache releases.
 
 
 ## Documentation

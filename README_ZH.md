@@ -113,11 +113,13 @@ go get seata.apache.org/seata-go/v2@latest
 
 如果你想了解如何使用和集成 seata-go，请参考 [apache/seata-go-samples](https://github.com/apache/incubator-seata-go-samples)
 ## 如何查找最新版本
-访问 Seata-Go 的 GitHub Releases 页面
+请通过 [Seata Go 官方下载页面](https://seata.apache.org/download/seata-go/)
+查找已批准的正式版本、签名源码包、校验和及验证说明。
+[GitHub Releases 页面](https://github.com/apache/incubator-seata-go/releases)
+同时提供版本说明，也可能包含发布候选版本。
+较新的 tag 或预发布条目不代表最新稳定版本。
+发布候选版本（RC）仅用于开发者测试及投票，并非已批准的 Apache 正式版本。
 
-打开：https://github.com/apache/incubator-seata-go/releases
-
-最新的 tag / release 就是目前的最新稳定版本。
 ## 文档
 
 [快速开始](./docs/quickstart_zh.md)

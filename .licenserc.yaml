@@ -60,8 +60,12 @@ header: # `header` section is configurations for source codes license header.
     - 'LICENSE'
     - 'DISCLAIMER'
     - 'NOTICE'
-    - '.github'
     - '**/*.json'
+    # Go-derived files retain their upstream BSD headers, checked separately
+    # with .licenserc-go-bsd.yaml. Their license text is included in LICENSE.
+    - 'pkg/datasource/sql/util/convert.go'
+    - 'pkg/datasource/sql/util/ctxutil.go'
+    - 'pkg/datasource/sql/util/sql.go'
   comment: on-failure # on what condition license-eye will comment on the pull request, `on-failure`, `always`, `never`.
 
   language:

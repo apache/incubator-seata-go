@@ -66,6 +66,12 @@ jobs:
           log: info
           config: .licenserc.yaml
           mode: check
+      - name: Check upstream Go BSD headers
+        uses: apache/skywalking-eyes@985866ce7e324454f61e22eb2db2e998db09d6f3
+        with:
+          log: info
+          config: .licenserc-go-bsd.yaml
+          mode: check
 
   dependency-license:
     name: Dependency licenses
@@ -87,15 +93,11 @@ jobs:
           cp  ./licenses/LICENSE.tpl ./dist-material/LICENSE.tpl
           go install github.com/apache/skywalking-eyes/cmd/license-eye@47febf5
           license-eye dependency resolve --summary ./dist-material/LICENSE.tpl || exit 1
-          if [ -f "./dist-material/LICENSE)" ]; then
-            echo "echo LICENSE check"
+          if [ -f "./dist-material/LICENSE" ]; then
+            echo "LICENSE check"
             cat ./dist-material/LICENSE
           fi
       - name: Check Dependencies Licenses Invalid
         run: |
           go install github.com/apache/skywalking-eyes/cmd/license-eye@47febf5
-          if [ ! -z "$(license-eye dependency check -v error | grep 'GPL\|LGPL\|ERROR')" ]; then
-            echo "GPL or LGPL dependency LICENSE exists"
-            license-eye dependency check -v error | grep 'GPL\|LGPL\|ERROR'
-            exit 1
-          fi
+          license-eye dependency check -v error
