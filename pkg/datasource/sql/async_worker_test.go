@@ -185,6 +185,63 @@ func TestAsyncWorker_UnavailableResourceDoesNotBlockHealthyResource(t *testing.T
 	}, time.Second, 5*time.Millisecond, "successful cleanup must release its slot and preserve failed branches")
 }
 
+func TestAsyncWorker_SlowResourceDoesNotBlockOtherResourceCommit(t *testing.T) {
+	manager := &ATSourceManager{}
+	slowStarted := make(chan struct{})
+	releaseSlow := make(chan struct{})
+	var slowOnce sync.Once
+	slow := addCleanupTestResource(t, manager, "slow", sqlmock.QueryMatcherFunc(func(expected, actual string) error {
+		slowOnce.Do(func() {
+			close(slowStarted)
+			<-releaseSlow
+		})
+		return errors.New("slow resource unavailable")
+	}))
+	slow.ExpectPrepare("DELETE FROM undo_log")
+	healthy := addCleanupTestResource(t, manager, "healthy", sqlmock.QueryMatcherRegexp)
+	healthy.ExpectPrepare("DELETE FROM undo_log").ExpectExec().
+		WithArgs("xid-healthy", int64(1)).WillReturnResult(sqlmock.NewResult(0, 1))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(releaseSlow) }) }
+	defer release()
+	worker := NewAsyncWorker(ctx, prometheus.NewRegistry(), AsyncWorkerConfig{
+		BufferLimit:            3,
+		BufferCleanInterval:    50 * time.Millisecond,
+		ReceiveChanSize:        1,
+		CommitWorkerCount:      1,
+		CommitWorkerBufferSize: 1,
+	}, manager)
+
+	// Fill the slow resource's whole share: one running job, one buffered job, a full batch and the entry queue.
+	slowBranches := int64(worker.perResourceLimit)
+	for branchID := int64(1); branchID <= slowBranches; branchID++ {
+		status, err := worker.BranchCommit(ctx, rm.BranchResource{Xid: "xid-slow", BranchId: branchID, ResourceId: "slow"})
+		require.NoError(t, err)
+		require.Equal(t, branch.BranchStatus(branch.BranchStatusPhasetwoCommitted), status)
+		if branchID == 1 {
+			select {
+			case <-slowStarted:
+			case <-ctx.Done():
+				t.Fatal("slow cleanup never started")
+			}
+		}
+	}
+
+	commitCtx, commitCancel := context.WithTimeout(ctx, 500*time.Millisecond)
+	defer commitCancel()
+	status, err := worker.BranchCommit(commitCtx, rm.BranchResource{Xid: "xid-healthy", BranchId: 1, ResourceId: "healthy"})
+	require.NoError(t, err, "a slow resource must not block admission of another resource")
+	require.Equal(t, branch.BranchStatus(branch.BranchStatusPhasetwoCommitted), status)
+
+	release()
+	require.Eventually(t, func() bool {
+		return healthy.ExpectationsWereMet() == nil
+	}, 3*time.Second, 10*time.Millisecond, "healthy cleanup must run once workers free up")
+}
+
 func TestAsyncWorker_EmptyResourceIDIsDropped(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -56,7 +56,7 @@
 
 ### optimize：
 
-  - batch AT post-commit undo log cleanup by data source on MySQL and PostgreSQL, with capacity reserved for other data sources when one has a retry backlog
+  - [[#1238](https://github.com/apache/incubator-seata-go/pull/1238)] batch AT post-commit undo log cleanup by data source on MySQL and PostgreSQL, with capacity reserved for other data sources when one has a retry backlog
   - [[#125](https://github.com/apache/incubator-seata-go/pull/125)] optimize named for the resource manager api and tcc resource
 
 ### test:

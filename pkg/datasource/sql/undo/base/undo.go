@@ -580,6 +580,7 @@ func (m *BaseUndoLogManager) getBatchDeleteUndoLogSql(xid []string, branchID []i
 	}
 
 	// Separate IN lists would also match cross-pairs that were never submitted.
+	// MySQL uses the (xid, branch_id) unique index for row-constructor IN only from 5.7.3; older versions scan the table.
 	pairs := strings.Repeat("(?,?),", len(xid)-1) + "(?,?)"
 	query := fmt.Sprintf("DELETE FROM %s WHERE (xid, branch_id) IN (%s)", getUndoLogTableName(), pairs)
 	return util.RewritePlaceholders(query, m.dialect()), nil

@@ -202,30 +202,22 @@ func (aw *AsyncWorker) run(ctx context.Context) {
 	// Count submitted jobs until this loop consumes their results.
 	outstandingJobs := 0
 	preferRetry := false
-	flush := false
+	// Entries that were already in ready at the last tick and should be submitted without waiting for a full batch.
+	flushRemaining := 0
 	for {
-		newBatchReady := len(ready) > 0 && (len(ready) >= aw.batchLimit || flush)
+		newBatchReady := len(ready) > 0 && (len(ready) >= aw.batchLimit || flushRemaining > 0)
 		if outstandingJobs < aw.jobLimit && (newBatchReady || len(dueRetries) > 0) {
 			var batch []phaseTwoContext
 			// Alternate when both queues can run so retries and fresh work both make progress.
 			if len(dueRetries) > 0 && (!newBatchReady || preferRetry) {
-				batchEnd := len(dueRetries)
-				if batchEnd > aw.batchLimit {
-					batchEnd = aw.batchLimit
-				}
-				batch = append(batch, dueRetries[:batchEnd]...)
-				for i := 0; i < batchEnd; i++ {
-					dueRetries[i] = phaseTwoContext{}
-				}
-				dueRetries = dueRetries[batchEnd:]
-				if len(dueRetries) == 0 {
-					dueRetries = nil
-				}
+				batch, dueRetries = aw.takeBatch(dueRetries)
 				preferRetry = false
 			} else {
-				batch = append(batch, ready...)
-				ready = ready[:0]
-				flush = false
+				batch, ready = aw.takeBatch(ready)
+				flushRemaining -= len(batch)
+				if flushRemaining < 0 {
+					flushRemaining = 0
+				}
 				preferRetry = true
 			}
 			if err := aw.commitWorker.Do(ctx, func(ctx context.Context) {
@@ -241,12 +233,10 @@ func (aw *AsyncWorker) run(ctx context.Context) {
 			continue
 		}
 
-		intake := aw.commitQueue
-		if len(ready) >= aw.batchLimit {
-			intake = nil
-		}
+		// Always drain commitQueue: reserved slots already bound ready, and stopping intake would block
+		// BranchCommit for every resource while one slow resource occupies all cleanup jobs.
 		select {
-		case phaseCtx := <-intake:
+		case phaseCtx := <-aw.commitQueue:
 			ready = append(ready, phaseCtx)
 		case result := <-results:
 			outstandingJobs--
@@ -262,11 +252,27 @@ func (aw *AsyncWorker) run(ctx context.Context) {
 				// Drain one retry cohort at a time so new failures do not retain its storage.
 				dueRetries, retries = retries, nil
 			}
-			flush = len(ready) > 0
+			flushRemaining = len(ready)
 		case <-ctx.Done():
 			return
 		}
 	}
+}
+
+// takeBatch removes up to batchLimit entries from the head of queue without copying the rest.
+func (aw *AsyncWorker) takeBatch(queue []phaseTwoContext) (batch, rest []phaseTwoContext) {
+	end := len(queue)
+	if end > aw.batchLimit {
+		end = aw.batchLimit
+	}
+	batch = append([]phaseTwoContext(nil), queue[:end]...)
+	for i := 0; i < end; i++ {
+		queue[i] = phaseTwoContext{}
+	}
+	if end == len(queue) {
+		return batch, queue[:0]
+	}
+	return batch, queue[end:]
 }
 
 func (aw *AsyncWorker) cleanUndoLogs(ctx context.Context, phaseCtxs []phaseTwoContext) cleanupResult {

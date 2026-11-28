@@ -51,7 +51,7 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 
 ### optimize：
 
-- 按数据源批量清理 MySQL 和 PostgreSQL 中 AT 分支提交后的回滚日志，并在单个数据源积压重试时为其他数据源保留容量
+- [[#1238](https://github.com/apache/incubator-seata-go/pull/1238)] 按数据源批量清理 MySQL 和 PostgreSQL 中 AT 分支提交后的回滚日志，并在单个数据源积压重试时为其他数据源保留容量
 - [[#125](https://github.com/apache/incubator-seata-go/pull/125)] 优化resourceManagerApi和tccResource功能
 
 ### test:
