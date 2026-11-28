@@ -185,14 +185,31 @@ func TestAsyncWorker_UnavailableResourceDoesNotBlockHealthyResource(t *testing.T
 	}, time.Second, 5*time.Millisecond, "successful cleanup must release its slot and preserve failed branches")
 }
 
-func TestAsyncWorker_EmptyResourceIDIsRetried(t *testing.T) {
-	worker := &AsyncWorker{}
-	branchWithoutResource := phaseTwoContext{Xid: "xid-without-resource", BranchID: 1}
+func TestAsyncWorker_EmptyResourceIDIsDropped(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	worker := NewAsyncWorker(ctx, prometheus.NewRegistry(), AsyncWorkerConfig{
+		BufferLimit:            3,
+		BufferCleanInterval:    time.Hour,
+		ReceiveChanSize:        1,
+		CommitWorkerCount:      1,
+		CommitWorkerBufferSize: 1,
+	}, &ATSourceManager{})
 
-	result := worker.cleanUndoLogs(context.Background(), []phaseTwoContext{branchWithoutResource})
+	// More than the entry queue holds, so a leaked slot or queued entry would block or exhaust capacity.
+	for branchID := int64(1); branchID <= 3; branchID++ {
+		status, err := worker.BranchCommit(ctx, rm.BranchResource{Xid: "xid-without-resource", BranchId: branchID})
+		require.NoError(t, err)
+		require.Equal(t, branch.BranchStatus(branch.BranchStatusPhasetwoCommitted), status)
+	}
 
-	require.NotContains(t, result.cleanedByResource, "")
-	require.Equal(t, []phaseTwoContext{branchWithoutResource}, result.failed)
+	require.Equal(t, float64(3), testutil.ToFloat64(worker.droppedNoResourceID))
+	require.Equal(t, float64(0), testutil.ToFloat64(worker.rePutBackToQueue))
+	require.Empty(t, worker.commitQueue)
+	worker.pendingMu.Lock()
+	defer worker.pendingMu.Unlock()
+	require.Zero(t, worker.pendingBranches)
+	require.Empty(t, worker.pendingByResource)
 }
 
 func TestAsyncWorker_BatchUndoLogCleanup(t *testing.T) {

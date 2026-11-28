@@ -85,6 +85,7 @@ type AsyncWorker struct {
 	doBranchCommitFailureTotal prometheus.Counter
 	receiveChanLength          prometheus.Gauge
 	rePutBackToQueue           prometheus.Counter
+	droppedNoResourceID        prometheus.Counter
 }
 
 func NewAsyncWorker(ctx context.Context, prom prometheus.Registerer, conf AsyncWorkerConfig, sourceManager datasource.DataSourceManager) *AsyncWorker {
@@ -122,6 +123,10 @@ func NewAsyncWorker(ctx context.Context, prom prometheus.Registerer, conf AsyncW
 		Name: "async_worker_commit_failure_retry_counter",
 		Help: "the counter of commit failure retry counter",
 	})
+	asyncWorker.droppedNoResourceID = promauto.With(prom).NewCounter(prometheus.CounterOpts{
+		Name: "async_worker_dropped_no_resource_id_total",
+		Help: "the count of undo log cleanups dropped because the branch has no resource ID",
+	})
 
 	go asyncWorker.run(ctx)
 
@@ -138,6 +143,13 @@ func (aw *AsyncWorker) BranchCommit(ctx context.Context, req rm.BranchResource) 
 
 	aw.branchCommitTotal.Add(1)
 
+	// Without a resource ID there is no data source to clean, and retrying cannot supply one.
+	if req.ResourceId == "" {
+		aw.droppedNoResourceID.Inc()
+		log.Errorf("drop AT undo log cleanup without resource ID: xid=%s, branchID=%d", req.Xid, req.BranchId)
+		return branch.BranchStatusPhasetwoCommitted, nil
+	}
+
 	if !aw.reserveCleanupSlot(req.ResourceId) {
 		aw.doBranchCommitFailureTotal.Inc()
 		return branch.BranchStatusPhasetwoCommitFailedRetryable, errors.New("async undo log cleanup capacity exhausted")
@@ -145,15 +157,12 @@ func (aw *AsyncWorker) BranchCommit(ctx context.Context, req rm.BranchResource) 
 
 	select {
 	case aw.commitQueue <- phaseCtx:
-		if phaseCtx.ResourceID == "" {
-			log.Warnf("AT undo log cleanup has no resource ID: xid=%s, branchID=%d", phaseCtx.Xid, phaseCtx.BranchID)
-		}
 	case <-ctx.Done():
 		aw.releaseCleanupSlots(map[string]int{req.ResourceId: 1})
 		return branch.BranchStatusPhasetwoCommitFailedRetryable, ctx.Err()
 	}
 
-	aw.receiveChanLength.Add(float64(len(aw.commitQueue)))
+	aw.receiveChanLength.Set(float64(len(aw.commitQueue)))
 
 	return branch.BranchStatusPhasetwoCommitted, nil
 }
@@ -268,10 +277,6 @@ func (aw *AsyncWorker) cleanUndoLogs(ctx context.Context, phaseCtxs []phaseTwoCo
 
 	result := cleanupResult{cleanedByResource: make(map[string]int, len(groups))}
 	for resourceID, group := range groups {
-		if resourceID == "" {
-			result.failed = append(result.failed, group...)
-			continue
-		}
 		failed := aw.cleanResourceUndoLogs(ctx, resourceID, group)
 		if cleaned := len(group) - len(failed); cleaned > 0 {
 			result.cleanedByResource[resourceID] = cleaned
