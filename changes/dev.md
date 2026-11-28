@@ -68,6 +68,7 @@
 
 ### docs：
 
+  - correct Go-derived source attribution, restore license checks for GitHub configuration, propagate dependency-license check failures, and direct users to approved releases
   - [[#1179](https://github.com/apache/incubator-seata-go/issues/1179)] fix README install command to use the `/v2` module path (`go get seata.apache.org/seata-go/v2@latest`) and correct broken release/issue/PR-template links
 
 ### contributors:

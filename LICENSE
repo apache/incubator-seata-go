@@ -209,7 +209,6 @@ BSD-style license notices:
 
   pkg/datasource/sql/util/convert.go
   pkg/datasource/sql/util/ctxutil.go
-  pkg/datasource/sql/util/lockkey.go
   pkg/datasource/sql/util/sql.go
 
 The included Go code is licensed under the following BSD-style license,
