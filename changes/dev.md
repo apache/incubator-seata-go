@@ -68,6 +68,8 @@
 
 ### docs：
 
+  - [[#1243](https://github.com/apache/incubator-seata-go/issues/1243)] retain the upstream GitHub license for the CodeQL starter workflow
+
   - [[#1179](https://github.com/apache/incubator-seata-go/issues/1179)] fix README install command to use the `/v2` module path (`go get seata.apache.org/seata-go/v2@latest`) and correct broken release/issue/PR-template links
 
 ### contributors:
