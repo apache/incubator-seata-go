@@ -86,6 +86,10 @@ type AsyncWorker struct {
 	receiveChanLength          prometheus.Gauge
 	rePutBackToQueue           prometheus.Counter
 	droppedNoResourceID        prometheus.Counter
+	capacityRejectedTotal      *prometheus.CounterVec
+	pendingBranchesGauge       prometheus.Gauge
+	pendingByResourceGauge     *prometheus.GaugeVec
+	retryBacklog               prometheus.Gauge
 }
 
 func NewAsyncWorker(ctx context.Context, prom prometheus.Registerer, conf AsyncWorkerConfig, sourceManager datasource.DataSourceManager) *AsyncWorker {
@@ -127,6 +131,30 @@ func NewAsyncWorker(ctx context.Context, prom prometheus.Registerer, conf AsyncW
 		Name: "async_worker_dropped_no_resource_id_total",
 		Help: "the count of undo log cleanups dropped because the branch has no resource ID",
 	})
+	asyncWorker.capacityRejectedTotal = promauto.With(prom).NewCounterVec(prometheus.CounterOpts{
+		Name: "async_worker_capacity_rejected_total",
+		Help: "the count of branch commits rejected because undo log cleanup capacity is exhausted",
+	}, []string{"scope"})
+	asyncWorker.pendingBranchesGauge = promauto.With(prom).NewGauge(prometheus.GaugeOpts{
+		Name: "async_worker_pending_branches",
+		Help: "the number of admitted branches whose undo log cleanup has not succeeded yet",
+	})
+	asyncWorker.pendingByResourceGauge = promauto.With(prom).NewGaugeVec(prometheus.GaugeOpts{
+		Name: "async_worker_pending_branches_by_resource",
+		Help: "the number of admitted branches per resource whose undo log cleanup has not succeeded yet",
+	}, []string{"resource"})
+	asyncWorker.retryBacklog = promauto.With(prom).NewGauge(prometheus.GaugeOpts{
+		Name: "async_worker_retry_backlog_branches",
+		Help: "the number of branches waiting for an undo log cleanup retry",
+	})
+	promauto.With(prom).NewGauge(prometheus.GaugeOpts{
+		Name: "async_worker_pending_branches_limit",
+		Help: "the admission limit of async_worker_pending_branches",
+	}).Set(float64(asyncWorker.pendingLimit))
+	promauto.With(prom).NewGauge(prometheus.GaugeOpts{
+		Name: "async_worker_pending_branches_per_resource_limit",
+		Help: "the admission limit of async_worker_pending_branches_by_resource",
+	}).Set(float64(asyncWorker.perResourceLimit))
 
 	go asyncWorker.run(ctx)
 
@@ -150,8 +178,8 @@ func (aw *AsyncWorker) BranchCommit(ctx context.Context, req rm.BranchResource) 
 		return branch.BranchStatusPhasetwoCommitted, nil
 	}
 
-	if !aw.reserveCleanupSlot(req.ResourceId) {
-		aw.doBranchCommitFailureTotal.Inc()
+	if scope, ok := aw.reserveCleanupSlot(req.ResourceId); !ok {
+		aw.capacityRejectedTotal.WithLabelValues(scope).Inc()
 		return branch.BranchStatusPhasetwoCommitFailedRetryable, errors.New("async undo log cleanup capacity exhausted")
 	}
 
@@ -167,15 +195,21 @@ func (aw *AsyncWorker) BranchCommit(ctx context.Context, req rm.BranchResource) 
 	return branch.BranchStatusPhasetwoCommitted, nil
 }
 
-func (aw *AsyncWorker) reserveCleanupSlot(resourceID string) bool {
+// reserveCleanupSlot returns the exhausted scope, "global" or "resource", when admission is rejected.
+func (aw *AsyncWorker) reserveCleanupSlot(resourceID string) (string, bool) {
 	aw.pendingMu.Lock()
 	defer aw.pendingMu.Unlock()
-	if aw.pendingBranches >= aw.pendingLimit || aw.pendingByResource[resourceID] >= aw.perResourceLimit {
-		return false
+	if aw.pendingBranches >= aw.pendingLimit {
+		return "global", false
+	}
+	if aw.pendingByResource[resourceID] >= aw.perResourceLimit {
+		return "resource", false
 	}
 	aw.pendingBranches++
 	aw.pendingByResource[resourceID]++
-	return true
+	aw.pendingBranchesGauge.Set(float64(aw.pendingBranches))
+	aw.pendingByResourceGauge.WithLabelValues(resourceID).Set(float64(aw.pendingByResource[resourceID]))
+	return "", true
 }
 
 func (aw *AsyncWorker) releaseCleanupSlots(cleanedByResource map[string]int) {
@@ -186,8 +220,12 @@ func (aw *AsyncWorker) releaseCleanupSlots(cleanedByResource map[string]int) {
 		aw.pendingByResource[resourceID] -= cleaned
 		if aw.pendingByResource[resourceID] == 0 {
 			delete(aw.pendingByResource, resourceID)
+			aw.pendingByResourceGauge.DeleteLabelValues(resourceID)
+		} else {
+			aw.pendingByResourceGauge.WithLabelValues(resourceID).Set(float64(aw.pendingByResource[resourceID]))
 		}
 	}
+	aw.pendingBranchesGauge.Set(float64(aw.pendingBranches))
 }
 
 func (aw *AsyncWorker) run(ctx context.Context) {
@@ -205,6 +243,7 @@ func (aw *AsyncWorker) run(ctx context.Context) {
 	// Entries that were already in ready at the last tick and should be submitted without waiting for a full batch.
 	flushRemaining := 0
 	for {
+		aw.retryBacklog.Set(float64(len(retries) + len(dueRetries)))
 		newBatchReady := len(ready) > 0 && (len(ready) >= aw.batchLimit || flushRemaining > 0)
 		if outstandingJobs < aw.jobLimit && (newBatchReady || len(dueRetries) > 0) {
 			var batch []phaseTwoContext

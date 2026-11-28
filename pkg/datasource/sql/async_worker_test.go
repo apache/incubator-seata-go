@@ -156,6 +156,7 @@ func TestAsyncWorker_UnavailableResourceDoesNotBlockHealthyResource(t *testing.T
 	unavailable := rm.BranchResource{Xid: "xid-unavailable", ResourceId: "unavailable"}
 	// Three batches of two plus the entry queue's one slot.
 	const unavailableBranches = 7
+	require.Equal(t, unavailableBranches, worker.perResourceLimit)
 	for id := int64(1); id <= unavailableBranches; id++ {
 		unavailable.BranchId = id
 		status, err := manager.BranchCommit(ctx, unavailable)
@@ -165,11 +166,20 @@ func TestAsyncWorker_UnavailableResourceDoesNotBlockHealthyResource(t *testing.T
 	require.Eventually(t, func() bool {
 		return testutil.ToFloat64(worker.rePutBackToQueue) >= unavailableBranches
 	}, time.Second, 5*time.Millisecond)
+	require.Equal(t, float64(worker.perResourceLimit), testutil.ToFloat64(worker.pendingByResourceGauge.WithLabelValues("unavailable")))
+	require.Equal(t, float64(unavailableBranches), testutil.ToFloat64(worker.pendingBranchesGauge))
+	require.Eventually(t, func() bool {
+		return testutil.ToFloat64(worker.retryBacklog) > 0
+	}, time.Second, 5*time.Millisecond, "failed cleanups must show up in the retry backlog")
 
 	unavailable.BranchId++
 	status, err := manager.BranchCommit(ctx, unavailable)
 	require.ErrorContains(t, err, "async undo log cleanup capacity exhausted")
 	require.Equal(t, branch.BranchStatus(branch.BranchStatusPhasetwoCommitFailedRetryable), status)
+	require.Equal(t, float64(1), testutil.ToFloat64(worker.capacityRejectedTotal.WithLabelValues("resource")))
+	require.Equal(t, float64(0), testutil.ToFloat64(worker.capacityRejectedTotal.WithLabelValues("global")))
+	require.Equal(t, float64(0), testutil.ToFloat64(worker.doBranchCommitFailureTotal),
+		"capacity rejections must not be counted as cleanup failures")
 
 	status, err = manager.BranchCommit(ctx, rm.BranchResource{Xid: "xid-healthy", BranchId: 1, ResourceId: "healthy"})
 	require.NoError(t, err)
@@ -183,6 +193,9 @@ func TestAsyncWorker_UnavailableResourceDoesNotBlockHealthyResource(t *testing.T
 		return worker.pendingBranches == unavailableBranches &&
 			len(worker.pendingByResource) == 1 && worker.pendingByResource["unavailable"] == unavailableBranches
 	}, time.Second, 5*time.Millisecond, "successful cleanup must release its slot and preserve failed branches")
+	require.Equal(t, float64(unavailableBranches), testutil.ToFloat64(worker.pendingBranchesGauge))
+	require.Equal(t, 1, testutil.CollectAndCount(worker.pendingByResourceGauge),
+		"a fully cleaned resource must drop its gauge series")
 }
 
 func TestAsyncWorker_SlowResourceDoesNotBlockOtherResourceCommit(t *testing.T) {
