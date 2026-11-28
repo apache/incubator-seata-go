@@ -60,6 +60,8 @@
 
 ### test:
 
+  - [[#1245](https://github.com/apache/incubator-seata-go/issues/1245)] use an ASF-approved Docker Buildx action for integration tests
+
   - [[#958](https://github.com/apache/incubator-seata-go/issues/958)] improve test coverage for pkg/rm/tcc/fence/store/db/sql (100%)
   - [[#957](https://github.com/apache/incubator-seata-go/issues/957)] improve test coverage for pkg/rm/tcc/fence/handler (84.5%)
   - [[#955](https://github.com/apache/incubator-seata-go/issues/955)] improve test coverage for pkg/rm/tcc/fence (95.1%)
